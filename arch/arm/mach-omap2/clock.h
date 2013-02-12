@@ -156,6 +156,7 @@ struct clockdomain;
 #define RATE_IN_AM33XX		(1 << 8)
 #define RATE_IN_TI814X		(1 << 9)
 #define RATE_IN_54XX		(1 << 10)
+#define RATE_IN_7XX		(1 << 11)
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 #define RATE_IN_34XX		(RATE_IN_3430ES1 | RATE_IN_3430ES2PLUS)
