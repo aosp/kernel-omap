@@ -166,6 +166,8 @@
 
 #define OSST_MAJOR		206	/* OnStream-SCx0 SCSI tape */
 
+#define PMD_MAJOR		210 /* Physical Memory (RAM) Drive */
+
 #define IBM_TTY3270_MAJOR	227
 #define IBM_FS3270_MAJOR	228
 
