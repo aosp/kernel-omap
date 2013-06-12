@@ -640,7 +640,7 @@ void __init omap5_init_early(void)
 	omap54xx_clockdomains_init();
 	omap54xx_hwmod_init();
 	omap_hwmod_init_postsetup();
-	omap5xxx_clk_init();
+	omap_clk_init = omap5xxx_clk_init;
 }
 #endif
 
@@ -663,7 +663,7 @@ void __init dra7xx_init_early(void)
 	dra7xx_clockdomains_init();
 	dra7xx_hwmod_init();
 	omap_hwmod_init_postsetup();
-	dra7xx_clk_init();
+	omap_clk_init = dra7xx_clk_init;
 }
 
 void __init dra7xx_init_late(void)
