@@ -379,6 +379,87 @@ static struct omap_hwmod dra7xx_ctrl_module_wkup_hwmod = {
 };
 
 /*
+ * 'gmac' class
+ * cpsw/gmac sub system
+ */
+static struct omap_hwmod_class_sysconfig dra7xx_gmac_sysc = {
+	.rev_offs	= 0x0,
+	.sysc_offs	= 0x8,
+	.syss_offs	= 0x4,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE |
+			   SYSS_HAS_RESET_STATUS),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | MSTANDBY_FORCE |
+			   MSTANDBY_NO),
+	.sysc_fields	= &omap_hwmod_sysc_type3,
+};
+
+static struct omap_hwmod_class dra7xx_gmac_hwmod_class = {
+	.name		= "gmac",
+	.sysc		= &dra7xx_gmac_sysc,
+};
+
+static struct omap_hwmod_irq_info dra7xx_gmac_irqs[] = {
+	{ .name = "c0_rx_thresh_pend", .irq = 50 + DRA7XX_IRQ_GIC_START, },
+	{ .name = "c0_rx_pend", .irq = 51 + DRA7XX_IRQ_GIC_START, },
+	{ .name = "c0_tx_pend", .irq = 52 + DRA7XX_IRQ_GIC_START, },
+	{ .name = "c0_misc_pend", .irq = 53 + DRA7XX_IRQ_GIC_START, },
+	{ .irq = -1 },
+};
+
+static struct omap_hwmod_addr_space dra7xx_gmac_addr_space[] = {
+	/* cpsw ss */
+	{
+		.pa_start	= 0x48484000,
+		.pa_end		= 0x48484000 + SZ_2K - 1,
+	},
+    /* cpsw wr */
+	{
+		.pa_start	= 0x48485200,
+		.pa_end		= 0x48485200 + SZ_256 - 1,
+		.flags		= ADDR_TYPE_RT,
+	},
+	{ }
+};
+
+static struct omap_hwmod dra7xx_gmac_hwmod = {
+	.name		= "gmac",
+	.class		= &dra7xx_gmac_hwmod_class,
+	.clkdm_name	= "gmac_clkdm",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
+	.mpu_irqs	= dra7xx_gmac_irqs,
+	.main_clk	= "dpll_gmac_ck",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= DRA7XX_CM_GMAC_GMAC_CLKCTRL_OFFSET,
+			.context_offs	= DRA7XX_RM_GMAC_GMAC_CONTEXT_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/*
+ * 'mdio' class
+ */
+static struct omap_hwmod_class dra7xx_mdio_hwmod_class = {
+	.name		= "davinci_mdio",
+};
+
+static struct omap_hwmod_addr_space dra7xx_mdio_addr_space[] = {
+	{
+		.pa_start	= 0x48485000,
+		.pa_end		= 0x48485000 + SZ_256 - 1,
+	},
+	{ }
+};
+
+static struct omap_hwmod dra7xx_mdio_hwmod = {
+	.name		= "davinci_mdio",
+	.class		= &dra7xx_mdio_hwmod_class,
+	.clkdm_name	= "gmac_clkdm",
+	.main_clk	= "dpll_gmac_ck",
+};
+
+/*
  * 'dcan' class
  *
  */
@@ -1544,7 +1625,6 @@ static struct omap_hwmod dra7xx_mcasp2_hwmod = {
 	},
 };
 
-/* HACK: Taken from UART6 since they're not used in dra7-evm */
 static struct omap_hwmod_dma_info dra7xx_mcasp3_sdma_reqs[] = {
 	{ .name = "tx", .dma_req = 78 + DRA7XX_DMA_REQ_START },
 	{ .name = "rx", .dma_req = 79 + DRA7XX_DMA_REQ_START },
@@ -1600,7 +1680,6 @@ static struct omap_hwmod dra7xx_mcasp5_hwmod = {
 	},
 };
 
-/* HACK: Taken from UART5 since they're not used in dra7-evm */
 static struct omap_hwmod_dma_info dra7xx_mcasp6_sdma_reqs[] = {
 	{ .name = "tx", .dma_req = 62 + DRA7XX_DMA_REQ_START },
 	{ .name = "rx", .dma_req = 63 + DRA7XX_DMA_REQ_START },
@@ -3825,6 +3904,7 @@ static struct omap_hwmod_addr_space dra7xx_bb2d_addrs[] = {
 	{
 		.pa_start	= 0x59000000,
 		.pa_end		= 0x590007ff,
+		.flags      = ADDR_TYPE_RT
 	},
 	{ }
 };
@@ -3877,6 +3957,21 @@ static struct omap_hwmod_ocp_if dra7xx_l4_wkup__ctrl_module_wkup = {
 	.clk		= "wkupaon_iclk_mux",
 	.addr		= dra7xx_ctrl_module_wkup_addrs,
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if dra7xx_l4_per2__gmac = {
+	.master		= &dra7xx_l4_per2_hwmod,
+	.slave		= &dra7xx_gmac_hwmod,
+	.clk		= "dpll_gmac_ck",
+	.addr		= dra7xx_gmac_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if dra7xx_gmac__mdio = {
+	.master		= &dra7xx_gmac_hwmod,
+	.slave		= &dra7xx_mdio_hwmod,
+	.addr		= dra7xx_mdio_addr_space,
+	.user		= OCP_USER_MPU,
 };
 
 /* l4_wkup -> dcan1 */
@@ -6208,6 +6303,8 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_wkup__ctrl_module_wkup,
 	&dra7xx_l4_wkup__dcan1,
 	&dra7xx_l4_per2__dcan2,
+	&dra7xx_l4_per2__gmac,
+	&dra7xx_gmac__mdio,
 	&dra7xx_l4_cfg__dma_system,
 	&dra7xx_l3_main_1__dss,
 	&dra7xx_l3_main_1__dispc,
