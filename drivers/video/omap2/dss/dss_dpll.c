@@ -57,6 +57,7 @@ static struct {
 	void __iomem *base[2], *control_base;
 	unsigned scp_refcount[2];
 	struct clk *sys_clk[2];
+	bool enabled[3];
 } dss_dpll;
 
 static inline u32 dpll_read_reg(enum dss_dpll dpll, u16 offset)
@@ -115,12 +116,7 @@ static inline int wait_for_bit_change(enum dss_dpll dpll,
 
 bool dss_dpll_disabled(enum dss_dpll dpll)
 {
-	if (dpll == DSS_DPLL_VIDEO1)
-		return CTRL_REG_GET(0, 0);
-	else if (dpll == DSS_DPLL_VIDEO2)
-		return CTRL_REG_GET(1, 1);
-	else	/* DSS_DPLL_HDMI */
-		return CTRL_REG_GET(2, 2);
+	return !dss_dpll.enabled[dpll];
 }
 
 int dss_dpll_calc_clock_div_pck(enum dss_dpll dpll, unsigned long req_pck,
@@ -400,6 +396,8 @@ void dss_dpll_enable_ctrl(enum dss_dpll dpll, bool enable)
 	}
 
 	CTRL_REG_FLD_MOD(!enable, bit, bit);
+
+	dss_dpll.enabled[dpll] = enable;
 }
 
 static int dpll_init(enum dss_dpll dpll)
