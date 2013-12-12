@@ -16,8 +16,8 @@
 /include/ "dra7.dtsi"
 
 / {
-	model = "TI DRA7";
-	compatible = "ti,dra7-evm", "ti,dra7";
+	model = "TI DRA74x";
+	compatible = "ti,dra7-evm", "ti,dra74x", "ti,dra7";
 
 	cpus {
 		cpu@0 {
