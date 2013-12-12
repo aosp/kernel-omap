@@ -13,11 +13,11 @@
 /memreserve/ 0x8E000000 0x1000000;
 /memreserve/ 0xA0000000 0x1800000;
 
-/include/ "dra7.dtsi"
+/include/ "dra74x.dtsi"
 
 / {
-	model = "TI DRA7";
-	compatible = "ti,dra7-evm", "ti,dra7";
+	model = "TI DRA74x";
+	compatible = "ti,dra7-evm", "ti,dra74x", "ti,dra7";
 
 	cpus {
 		cpu@0 {
