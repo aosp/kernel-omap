@@ -246,6 +246,30 @@
 		interrupt_mode = <0>;
 		dr_mode = "host";
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button@1 {
+			label = "Power Button";
+			linux,code = <116>;
+			gpios = <&pcf_lcd 0 1>;
+		};
+		button@2 {
+			label = "Volume Down";
+			linux,code = <114>;
+			gpios = <&pcf_lcd 1 1>;
+		};
+		button@3 {
+			label = "Volume Up";
+			linux,code = <115>;
+			gpios = <&pcf_lcd 2 1>;
+		};
+		/* button@4 -> pcf_lcd P4 is not mapped */
+	};
+
 };
 
 &dra7_pmx_core {
@@ -652,7 +676,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		/* HACK: Using n_latch in pcf8575 driver to "drive P10/11" to not hold ETH0/1 in reset */
-		n_latch = <0xfcfe>;
+		n_latch = <0xfcf0>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <11 2>;
 		interrupt-controller;
