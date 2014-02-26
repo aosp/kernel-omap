@@ -616,10 +616,12 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 }
 
-static void __init map_init_section(pmd_t *pmd, unsigned long addr,
+static void __init __map_init_section(pmd_t *pmd, unsigned long addr,
 			unsigned long end, phys_addr_t phys,
 			const struct mem_type *type)
 {
+	pmd_t *p = pmd;
+
 #ifndef CONFIG_ARM_LPAE
 	/*
 	 * In classic MMU format, puds and pmds are folded in to
@@ -638,7 +640,7 @@ static void __init map_init_section(pmd_t *pmd, unsigned long addr,
 		phys += SECTION_SIZE;
 	} while (pmd++, addr += SECTION_SIZE, addr != end);
 
-	flush_pmd_entry(pmd);
+	flush_pmd_entry(p);
 }
 
 static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
@@ -661,7 +663,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 		 */
 		if (type->prot_sect &&
 				((addr | next | phys) & ~SECTION_MASK) == 0) {
-			map_init_section(pmd, addr, next, phys, type);
+			__map_init_section(pmd, addr, next, phys, type);
 		} else {
 			alloc_init_pte(pmd, addr, next,
 						__phys_to_pfn(phys), type);
@@ -1173,7 +1175,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	/*
 	 * Allocate the vector page early.
 	 */
-	vectors = early_alloc(PAGE_SIZE);
+	vectors = early_alloc(PAGE_SIZE * 2);
 
 	early_trap_init(vectors);
 
@@ -1218,14 +1220,26 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	map.pfn = __phys_to_pfn(virt_to_phys(vectors));
 	map.virtual = 0xffff0000;
 	map.length = PAGE_SIZE;
+#ifdef CONFIG_KUSER_HELPERS
 	map.type = MT_HIGH_VECTORS;
+#else
+	map.type = MT_LOW_VECTORS;
+#endif
 	create_mapping(&map);
 
 	if (!vectors_high()) {
 		map.virtual = 0;
+		map.length = PAGE_SIZE * 2;
 		map.type = MT_LOW_VECTORS;
 		create_mapping(&map);
 	}
+
+	/* Now create a kernel read-only mapping */
+	map.pfn += 1;
+	map.virtual = 0xffff0000 + PAGE_SIZE;
+	map.length = PAGE_SIZE;
+	map.type = MT_LOW_VECTORS;
+	create_mapping(&map);
 
 	/*
 	 * Ask the machine support to map in the statically mapped devices.

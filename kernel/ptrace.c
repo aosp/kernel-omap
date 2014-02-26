@@ -257,7 +257,8 @@ ok:
 	if (task->mm)
 		dumpable = get_dumpable(task->mm);
 	rcu_read_lock();
-	if (!dumpable && !ptrace_has_cap(__task_cred(task)->user_ns, mode)) {
+	if (dumpable != SUID_DUMP_USER &&
+	    !ptrace_has_cap(__task_cred(task)->user_ns, mode)) {
 		rcu_read_unlock();
 		return -EPERM;
 	}
@@ -665,20 +666,22 @@ static int ptrace_peek_siginfo(struct task_struct *child,
 		if (unlikely(is_compat_task())) {
 			compat_siginfo_t __user *uinfo = compat_ptr(data);
 
-			ret = copy_siginfo_to_user32(uinfo, &info);
-			ret |= __put_user(info.si_code, &uinfo->si_code);
+			if (copy_siginfo_to_user32(uinfo, &info) ||
+			    __put_user(info.si_code, &uinfo->si_code)) {
+				ret = -EFAULT;
+				break;
+			}
+
 		} else
 #endif
 		{
 			siginfo_t __user *uinfo = (siginfo_t __user *) data;
 
-			ret = copy_siginfo_to_user(uinfo, &info);
-			ret |= __put_user(info.si_code, &uinfo->si_code);
-		}
-
-		if (ret) {
-			ret = -EFAULT;
-			break;
+			if (copy_siginfo_to_user(uinfo, &info) ||
+			    __put_user(info.si_code, &uinfo->si_code)) {
+				ret = -EFAULT;
+				break;
+			}
 		}
 
 		data += sizeof(siginfo_t);

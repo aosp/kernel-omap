@@ -1570,6 +1570,8 @@ void ath_txq_schedule(struct ath_softc *sc, struct ath_txq *txq)
 	    txq->axq_ampdu_depth >= ATH_AGGR_MIN_QDEPTH)
 		return;
 
+	rcu_read_lock();
+
 	ac = list_first_entry(&txq->axq_acq, struct ath_atx_ac, list);
 	last_ac = list_entry(txq->axq_acq.prev, struct ath_atx_ac, list);
 
@@ -1608,8 +1610,10 @@ void ath_txq_schedule(struct ath_softc *sc, struct ath_txq *txq)
 
 		if (ac == last_ac ||
 		    txq->axq_ampdu_depth >= ATH_AGGR_MIN_QDEPTH)
-			return;
+			break;
 	}
+
+	rcu_read_unlock();
 }
 
 /***********/
@@ -2383,6 +2387,7 @@ void ath_tx_node_init(struct ath_softc *sc, struct ath_node *an)
 	for (acno = 0, ac = &an->ac[acno];
 	     acno < IEEE80211_NUM_ACS; acno++, ac++) {
 		ac->sched    = false;
+		ac->clear_ps_filter = true;
 		ac->txq = sc->tx.txq_map[acno];
 		INIT_LIST_HEAD(&ac->tid_q);
 	}

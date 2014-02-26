@@ -984,8 +984,6 @@ int iscsi_target_setup_login_socket(
 	}
 
 	np->np_transport = t;
-	printk("Set np->np_transport to %p -> %s\n", np->np_transport,
-				np->np_transport->name);
 	return 0;
 }
 
@@ -1002,7 +1000,6 @@ int iscsit_accept_np(struct iscsi_np *np, struct iscsi_conn *conn)
 
 	conn->sock = new_sock;
 	conn->login_family = np->np_sockaddr.ss_family;
-	printk("iSCSI/TCP: Setup conn->sock from new_sock: %p\n", new_sock);
 
 	if (np->np_sockaddr.ss_family == AF_INET6) {
 		memset(&sock_in6, 0, sizeof(struct sockaddr_in6));
@@ -1166,12 +1163,11 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
 		if (np->np_thread_state == ISCSI_NP_THREAD_RESET) {
 			spin_unlock_bh(&np->np_thread_lock);
 			complete(&np->np_restart_comp);
-			if (ret == -ENODEV) {
-				iscsit_put_transport(conn->conn_transport);
-				kfree(conn);
-				conn = NULL;
+			iscsit_put_transport(conn->conn_transport);
+			kfree(conn);
+			conn = NULL;
+			if (ret == -ENODEV)
 				goto out;
-			}
 			/* Get another socket */
 			return 1;
 		}

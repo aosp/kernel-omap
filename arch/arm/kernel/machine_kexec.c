@@ -73,6 +73,7 @@ void machine_crash_nonpanic_core(void *unused)
 	crash_save_cpu(&regs, smp_processor_id());
 	flush_cache_all();
 
+	set_cpu_online(smp_processor_id(), false);
 	atomic_dec(&waiting_for_crash_ipi);
 	while (1)
 		cpu_relax();
@@ -134,6 +135,10 @@ void machine_kexec(struct kimage *image)
 	unsigned long reboot_code_buffer_phys;
 	void *reboot_code_buffer;
 
+	if (num_online_cpus() > 1) {
+		pr_err("kexec: error: multiple CPUs still online\n");
+		return;
+	}
 
 	page_list = image->head & PAGE_MASK;
 

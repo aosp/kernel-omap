@@ -290,6 +290,26 @@ int acpi_bus_init_power(struct acpi_device *device)
 	return 0;
 }
 
+/**
+ * acpi_device_fix_up_power - Force device with missing _PSC into D0.
+ * @device: Device object whose power state is to be fixed up.
+ *
+ * Devices without power resources and _PSC, but having _PS0 and _PS3 defined,
+ * are assumed to be put into D0 by the BIOS.  However, in some cases that may
+ * not be the case and this function should be used then.
+ */
+int acpi_device_fix_up_power(struct acpi_device *device)
+{
+	int ret = 0;
+
+	if (!device->power.flags.power_resources
+	    && !device->power.flags.explicit_get
+	    && device->power.state == ACPI_STATE_D0)
+		ret = acpi_dev_pm_explicit_set(device, ACPI_STATE_D0);
+
+	return ret;
+}
+
 int acpi_bus_update_power(acpi_handle handle, int *state_p)
 {
 	struct acpi_device *device;
@@ -304,14 +324,27 @@ int acpi_bus_update_power(acpi_handle handle, int *state_p)
 	if (result)
 		return result;
 
-	if (state == ACPI_STATE_UNKNOWN)
+	if (state == ACPI_STATE_UNKNOWN) {
 		state = ACPI_STATE_D0;
-
-	result = acpi_device_set_power(device, state);
-	if (!result && state_p)
+		result = acpi_device_set_power(device, state);
+		if (result)
+			return result;
+	} else {
+		if (device->power.flags.power_resources) {
+			/*
+			 * We don't need to really switch the state, bu we need
+			 * to update the power resources' reference counters.
+			 */
+			result = acpi_power_transition(device, state);
+			if (result)
+				return result;
+		}
+		device->power.state = state;
+	}
+	if (state_p)
 		*state_p = state;
 
-	return result;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(acpi_bus_update_power);
 

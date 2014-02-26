@@ -792,6 +792,40 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
 EXPORT_SYMBOL(dev_get_by_index);
 
 /**
+ *	netdev_get_name - get a netdevice name, knowing its ifindex.
+ *	@net: network namespace
+ *	@name: a pointer to the buffer where the name will be stored.
+ *	@ifindex: the ifindex of the interface to get the name from.
+ *
+ *	The use of raw_seqcount_begin() and cond_resched() before
+ *	retrying is required as we want to give the writers a chance
+ *	to complete when CONFIG_PREEMPT is not set.
+ */
+int netdev_get_name(struct net *net, char *name, int ifindex)
+{
+	struct net_device *dev;
+	unsigned int seq;
+
+retry:
+	seq = raw_seqcount_begin(&devnet_rename_seq);
+	rcu_read_lock();
+	dev = dev_get_by_index_rcu(net, ifindex);
+	if (!dev) {
+		rcu_read_unlock();
+		return -ENODEV;
+	}
+
+	strcpy(name, dev->name);
+	rcu_read_unlock();
+	if (read_seqcount_retry(&devnet_rename_seq, seq)) {
+		cond_resched();
+		goto retry;
+	}
+
+	return 0;
+}
+
+/**
  *	dev_getbyhwaddr_rcu - find a device by its hardware address
  *	@net: the applicable net namespace
  *	@type: media type of device
@@ -3479,8 +3513,15 @@ ncls:
 		}
 	}
 
-	if (vlan_tx_nonzero_tag_present(skb))
-		skb->pkt_type = PACKET_OTHERHOST;
+	if (unlikely(vlan_tx_tag_present(skb))) {
+		if (vlan_tx_tag_get_id(skb))
+			skb->pkt_type = PACKET_OTHERHOST;
+		/* Note: we might in the future use prio bits
+		 * and set skb->priority like in vlan_do_receive()
+		 * For the time being, just ignore Priority Code Point
+		 */
+		skb->vlan_tci = 0;
+	}
 
 	/* deliver only exact match when indicated */
 	null_or_dev = deliver_exact ? skb->dev : NULL;
@@ -4437,7 +4478,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
 
-	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+	if (ops->ndo_change_rx_flags)
 		ops->ndo_change_rx_flags(dev, flags);
 }
 

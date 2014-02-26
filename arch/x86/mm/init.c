@@ -78,8 +78,8 @@ __ref void *alloc_low_pages(unsigned int num)
 	return __va(pfn << PAGE_SHIFT);
 }
 
-/* need 4 4k for initial PMD_SIZE, 4k for 0-ISA_END_ADDRESS */
-#define INIT_PGT_BUF_SIZE	(5 * PAGE_SIZE)
+/* need 3 4k for initial PMD_SIZE,  3 4k for 0-ISA_END_ADDRESS */
+#define INIT_PGT_BUF_SIZE	(6 * PAGE_SIZE)
 RESERVE_BRK(early_pgt_alloc, INIT_PGT_BUF_SIZE);
 void  __init early_alloc_pgt_buf(void)
 {
@@ -277,6 +277,9 @@ static int __meminit split_mem_range(struct map_range *mr, int nr_range,
 	end_pfn = limit_pfn;
 	nr_range = save_mr(mr, nr_range, start_pfn, end_pfn, 0);
 
+	if (!after_bootmem)
+		adjust_range_page_size_mask(mr, nr_range);
+
 	/* try to merge same page size and continuous */
 	for (i = 0; nr_range > 1 && i < nr_range - 1; i++) {
 		unsigned long old_start;
@@ -290,9 +293,6 @@ static int __meminit split_mem_range(struct map_range *mr, int nr_range,
 		mr[i--].start = old_start;
 		nr_range--;
 	}
-
-	if (!after_bootmem)
-		adjust_range_page_size_mask(mr, nr_range);
 
 	for (i = 0; i < nr_range; i++)
 		printk(KERN_DEBUG " [mem %#010lx-%#010lx] page %s\n",

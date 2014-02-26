@@ -471,10 +471,12 @@ static int nl80211_prepare_wdev_dump(struct sk_buff *skb,
 			goto out_unlock;
 		}
 		*rdev = wiphy_to_dev((*wdev)->wiphy);
-		cb->args[0] = (*rdev)->wiphy_idx;
+		/* 0 is the first index - add 1 to parse only once */
+		cb->args[0] = (*rdev)->wiphy_idx + 1;
 		cb->args[1] = (*wdev)->identifier;
 	} else {
-		struct wiphy *wiphy = wiphy_idx_to_wiphy(cb->args[0]);
+		/* subtract the 1 again here */
+		struct wiphy *wiphy = wiphy_idx_to_wiphy(cb->args[0] - 1);
 		struct wireless_dev *tmp;
 
 		if (!wiphy) {
@@ -1564,12 +1566,17 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
 	struct cfg80211_registered_device *dev;
 	s64 filter_wiphy = -1;
 	bool split = false;
-	struct nlattr **tb = nl80211_fam.attrbuf;
+	struct nlattr **tb;
 	int res;
+
+	/* will be zeroed in nlmsg_parse() */
+	tb = kmalloc(sizeof(*tb) * (NL80211_ATTR_MAX + 1), GFP_KERNEL);
+	if (!tb)
+		return -ENOMEM;
 
 	mutex_lock(&cfg80211_mutex);
 	res = nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
-			  tb, nl80211_fam.maxattr, nl80211_policy);
+			  tb, NL80211_ATTR_MAX, nl80211_policy);
 	if (res == 0) {
 		split = tb[NL80211_ATTR_SPLIT_WIPHY_DUMP];
 		if (tb[NL80211_ATTR_WIPHY])
@@ -1583,6 +1590,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
 			netdev = dev_get_by_index(sock_net(skb->sk), ifidx);
 			if (!netdev) {
 				mutex_unlock(&cfg80211_mutex);
+				kfree(tb);
 				return -ENODEV;
 			}
 			if (netdev->ieee80211_ptr) {
@@ -1593,6 +1601,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
 			dev_put(netdev);
 		}
 	}
+	kfree(tb);
 
 	list_for_each_entry(dev, &cfg80211_rdev_list, list) {
 		if (!net_eq(wiphy_net(&dev->wiphy), sock_net(skb->sk)))
@@ -6581,12 +6590,14 @@ EXPORT_SYMBOL(cfg80211_testmode_alloc_event_skb);
 
 void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
 {
+	struct cfg80211_registered_device *rdev = ((void **)skb->cb)[0];
 	void *hdr = ((void **)skb->cb)[1];
 	struct nlattr *data = ((void **)skb->cb)[2];
 
 	nla_nest_end(skb, data);
 	genlmsg_end(skb, hdr);
-	genlmsg_multicast(skb, 0, nl80211_testmode_mcgrp.id, gfp);
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), skb, 0,
+				nl80211_testmode_mcgrp.id, gfp);
 }
 EXPORT_SYMBOL(cfg80211_testmode_event);
 #endif
@@ -10021,7 +10032,8 @@ void cfg80211_mgmt_tx_status(struct wireless_dev *wdev, u64 cookie,
 
 	genlmsg_end(msg, hdr);
 
-	genlmsg_multicast(msg, 0, nl80211_mlme_mcgrp.id, gfp);
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, gfp);
 	return;
 
  nla_put_failure:

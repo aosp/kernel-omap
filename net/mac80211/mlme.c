@@ -31,10 +31,12 @@
 #include "led.h"
 
 #define IEEE80211_AUTH_TIMEOUT		(HZ / 5)
+#define IEEE80211_AUTH_TIMEOUT_LONG	(HZ / 2)
 #define IEEE80211_AUTH_TIMEOUT_SHORT	(HZ / 10)
 #define IEEE80211_AUTH_MAX_TRIES	3
 #define IEEE80211_AUTH_WAIT_ASSOC	(HZ * 5)
 #define IEEE80211_ASSOC_TIMEOUT		(HZ / 5)
+#define IEEE80211_ASSOC_TIMEOUT_LONG	(HZ / 2)
 #define IEEE80211_ASSOC_TIMEOUT_SHORT	(HZ / 10)
 #define IEEE80211_ASSOC_MAX_TRIES	3
 
@@ -237,8 +239,9 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 			     struct ieee80211_channel *channel,
 			     const struct ieee80211_ht_operation *ht_oper,
 			     const struct ieee80211_vht_operation *vht_oper,
-			     struct cfg80211_chan_def *chandef, bool verbose)
+			     struct cfg80211_chan_def *chandef, bool tracking)
 {
+	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 	struct cfg80211_chan_def vht_chandef;
 	u32 ht_cfreq, ret;
 
@@ -257,7 +260,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 	ht_cfreq = ieee80211_channel_to_frequency(ht_oper->primary_chan,
 						  channel->band);
 	/* check that channel matches the right operating channel */
-	if (channel->center_freq != ht_cfreq) {
+	if (!tracking && channel->center_freq != ht_cfreq) {
 		/*
 		 * It's possible that some APs are confused here;
 		 * Netgear WNDR3700 sometimes reports 4 higher than
@@ -265,11 +268,10 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 		 * since we look at probe response/beacon data here
 		 * it should be OK.
 		 */
-		if (verbose)
-			sdata_info(sdata,
-				   "Wrong control channel: center-freq: %d ht-cfreq: %d ht->primary_chan: %d band: %d - Disabling HT\n",
-				   channel->center_freq, ht_cfreq,
-				   ht_oper->primary_chan, channel->band);
+		sdata_info(sdata,
+			   "Wrong control channel: center-freq: %d ht-cfreq: %d ht->primary_chan: %d band: %d - Disabling HT\n",
+			   channel->center_freq, ht_cfreq,
+			   ht_oper->primary_chan, channel->band);
 		ret = IEEE80211_STA_DISABLE_HT | IEEE80211_STA_DISABLE_VHT;
 		goto out;
 	}
@@ -323,7 +325,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 				channel->band);
 		break;
 	default:
-		if (verbose)
+		if (!(ifmgd->flags & IEEE80211_STA_DISABLE_VHT))
 			sdata_info(sdata,
 				   "AP VHT operation IE has invalid channel width (%d), disable VHT\n",
 				   vht_oper->chan_width);
@@ -332,7 +334,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (!cfg80211_chandef_valid(&vht_chandef)) {
-		if (verbose)
+		if (!(ifmgd->flags & IEEE80211_STA_DISABLE_VHT))
 			sdata_info(sdata,
 				   "AP VHT information is invalid, disable VHT\n");
 		ret = IEEE80211_STA_DISABLE_VHT;
@@ -345,7 +347,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (!cfg80211_chandef_compatible(chandef, &vht_chandef)) {
-		if (verbose)
+		if (!(ifmgd->flags & IEEE80211_STA_DISABLE_VHT))
 			sdata_info(sdata,
 				   "AP VHT information doesn't match HT, disable VHT\n");
 		ret = IEEE80211_STA_DISABLE_VHT;
@@ -361,18 +363,27 @@ out:
 	if (ret & IEEE80211_STA_DISABLE_VHT)
 		vht_chandef = *chandef;
 
+	/*
+	 * Ignore the DISABLED flag when we're already connected and only
+	 * tracking the APs beacon for bandwidth changes - otherwise we
+	 * might get disconnected here if we connect to an AP, update our
+	 * regulatory information based on the AP's country IE and the
+	 * information we have is wrong/outdated and disables the channel
+	 * that we're actually using for the connection to the AP.
+	 */
 	while (!cfg80211_chandef_usable(sdata->local->hw.wiphy, chandef,
-					IEEE80211_CHAN_DISABLED)) {
+					tracking ? 0 :
+						   IEEE80211_CHAN_DISABLED)) {
 		if (WARN_ON(chandef->width == NL80211_CHAN_WIDTH_20_NOHT)) {
 			ret = IEEE80211_STA_DISABLE_HT |
 			      IEEE80211_STA_DISABLE_VHT;
-			goto out;
+			break;
 		}
 
 		ret |= chandef_downgrade(chandef);
 	}
 
-	if (chandef->width != vht_chandef.width && verbose)
+	if (chandef->width != vht_chandef.width && !tracking)
 		sdata_info(sdata,
 			   "capabilities/regulatory prevented using AP HT/VHT configuration, downgraded\n");
 
@@ -412,7 +423,7 @@ static int ieee80211_config_bw(struct ieee80211_sub_if_data *sdata,
 
 	/* calculate new channel (type) based on HT/VHT operation IEs */
 	flags = ieee80211_determine_chantype(sdata, sband, chan, ht_oper,
-					     vht_oper, &chandef, false);
+					     vht_oper, &chandef, true);
 
 	/*
 	 * Downgrade the new channel if we associated with restricted
@@ -2522,8 +2533,11 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	u16 capab_info, aid;
 	struct ieee802_11_elems elems;
 	struct ieee80211_bss_conf *bss_conf = &sdata->vif.bss_conf;
+	const struct cfg80211_bss_ies *bss_ies = NULL;
+	struct ieee80211_mgd_assoc_data *assoc_data = ifmgd->assoc_data;
 	u32 changed = 0;
 	int err;
+	bool ret;
 
 	/* AssocResp and ReassocResp have identical structure */
 
@@ -2555,21 +2569,86 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	ifmgd->aid = aid;
 
 	/*
+	 * Some APs are erroneously not including some information in their
+	 * (re)association response frames. Try to recover by using the data
+	 * from the beacon or probe response. This seems to afflict mobile
+	 * 2G/3G/4G wifi routers, reported models include the "Onda PN51T",
+	 * "Vodafone PocketWiFi 2", "ZTE MF60" and a similar T-Mobile device.
+	 */
+	if ((assoc_data->wmm && !elems.wmm_param) ||
+	    (!(ifmgd->flags & IEEE80211_STA_DISABLE_HT) &&
+	     (!elems.ht_cap_elem || !elems.ht_operation)) ||
+	    (!(ifmgd->flags & IEEE80211_STA_DISABLE_VHT) &&
+	     (!elems.vht_cap_elem || !elems.vht_operation))) {
+		const struct cfg80211_bss_ies *ies;
+		struct ieee802_11_elems bss_elems;
+
+		rcu_read_lock();
+		ies = rcu_dereference(cbss->ies);
+		if (ies)
+			bss_ies = kmemdup(ies, sizeof(*ies) + ies->len,
+					  GFP_ATOMIC);
+		rcu_read_unlock();
+		if (!bss_ies)
+			return false;
+
+		ieee802_11_parse_elems(bss_ies->data, bss_ies->len,
+				       false, &bss_elems);
+		if (assoc_data->wmm &&
+		    !elems.wmm_param && bss_elems.wmm_param) {
+			elems.wmm_param = bss_elems.wmm_param;
+			sdata_info(sdata,
+				   "AP bug: WMM param missing from AssocResp\n");
+		}
+
+		/*
+		 * Also check if we requested HT/VHT, otherwise the AP doesn't
+		 * have to include the IEs in the (re)association response.
+		 */
+		if (!elems.ht_cap_elem && bss_elems.ht_cap_elem &&
+		    !(ifmgd->flags & IEEE80211_STA_DISABLE_HT)) {
+			elems.ht_cap_elem = bss_elems.ht_cap_elem;
+			sdata_info(sdata,
+				   "AP bug: HT capability missing from AssocResp\n");
+		}
+		if (!elems.ht_operation && bss_elems.ht_operation &&
+		    !(ifmgd->flags & IEEE80211_STA_DISABLE_HT)) {
+			elems.ht_operation = bss_elems.ht_operation;
+			sdata_info(sdata,
+				   "AP bug: HT operation missing from AssocResp\n");
+		}
+		if (!elems.vht_cap_elem && bss_elems.vht_cap_elem &&
+		    !(ifmgd->flags & IEEE80211_STA_DISABLE_VHT)) {
+			elems.vht_cap_elem = bss_elems.vht_cap_elem;
+			sdata_info(sdata,
+				   "AP bug: VHT capa missing from AssocResp\n");
+		}
+		if (!elems.vht_operation && bss_elems.vht_operation &&
+		    !(ifmgd->flags & IEEE80211_STA_DISABLE_VHT)) {
+			elems.vht_operation = bss_elems.vht_operation;
+			sdata_info(sdata,
+				   "AP bug: VHT operation missing from AssocResp\n");
+		}
+	}
+
+	/*
 	 * We previously checked these in the beacon/probe response, so
 	 * they should be present here. This is just a safety net.
 	 */
 	if (!(ifmgd->flags & IEEE80211_STA_DISABLE_HT) &&
 	    (!elems.wmm_param || !elems.ht_cap_elem || !elems.ht_operation)) {
 		sdata_info(sdata,
-			   "HT AP is missing WMM params or HT capability/operation in AssocResp\n");
-		return false;
+			   "HT AP is missing WMM params or HT capability/operation\n");
+		ret = false;
+		goto out;
 	}
 
 	if (!(ifmgd->flags & IEEE80211_STA_DISABLE_VHT) &&
 	    (!elems.vht_cap_elem || !elems.vht_operation)) {
 		sdata_info(sdata,
-			   "VHT AP is missing VHT capability/operation in AssocResp\n");
-		return false;
+			   "VHT AP is missing VHT capability/operation\n");
+		ret = false;
+		goto out;
 	}
 
 	mutex_lock(&sdata->local->sta_mtx);
@@ -2580,7 +2659,8 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	sta = sta_info_get(sdata, cbss->bssid);
 	if (WARN_ON(!sta)) {
 		mutex_unlock(&sdata->local->sta_mtx);
-		return false;
+		ret = false;
+		goto out;
 	}
 
 	sband = local->hw.wiphy->bands[ieee80211_get_sdata_band(sdata)];
@@ -2633,7 +2713,8 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 			   sta->sta.addr);
 		WARN_ON(__sta_info_destroy(sta));
 		mutex_unlock(&sdata->local->sta_mtx);
-		return false;
+		ret = false;
+		goto out;
 	}
 
 	mutex_unlock(&sdata->local->sta_mtx);
@@ -2673,7 +2754,10 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	ieee80211_sta_rx_notify(sdata, (struct ieee80211_hdr *)mgmt);
 	ieee80211_sta_reset_beacon_monitor(sdata);
 
-	return true;
+	ret = true;
+ out:
+	kfree(bss_ies);
+	return ret;
 }
 
 static enum rx_mgmt_action __must_check
@@ -3388,10 +3472,13 @@ static int ieee80211_probe_auth(struct ieee80211_sub_if_data *sdata)
 
 	if (tx_flags == 0) {
 		auth_data->timeout = jiffies + IEEE80211_AUTH_TIMEOUT;
-		ifmgd->auth_data->timeout_started = true;
+		auth_data->timeout_started = true;
 		run_again(ifmgd, auth_data->timeout);
 	} else {
-		auth_data->timeout_started = false;
+		auth_data->timeout =
+			round_jiffies_up(jiffies + IEEE80211_AUTH_TIMEOUT_LONG);
+		auth_data->timeout_started = true;
+		run_again(ifmgd, auth_data->timeout);
 	}
 
 	return 0;
@@ -3428,7 +3515,11 @@ static int ieee80211_do_assoc(struct ieee80211_sub_if_data *sdata)
 		assoc_data->timeout_started = true;
 		run_again(&sdata->u.mgd, assoc_data->timeout);
 	} else {
-		assoc_data->timeout_started = false;
+		assoc_data->timeout =
+			round_jiffies_up(jiffies +
+					 IEEE80211_ASSOC_TIMEOUT_LONG);
+		assoc_data->timeout_started = true;
+		run_again(&sdata->u.mgd, assoc_data->timeout);
 	}
 
 	return 0;
@@ -3833,7 +3924,7 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 	ifmgd->flags |= ieee80211_determine_chantype(sdata, sband,
 						     cbss->channel,
 						     ht_oper, vht_oper,
-						     &chandef, true);
+						     &chandef, false);
 
 	sdata->needed_rx_chains = min(ieee80211_ht_vht_rx_chains(sdata, cbss),
 				      local->rx_chains);

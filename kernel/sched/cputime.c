@@ -558,16 +558,13 @@ static void cputime_adjust(struct task_cputime *curr,
 			   struct cputime *prev,
 			   cputime_t *ut, cputime_t *st)
 {
-	cputime_t rtime, stime, utime, total;
+	cputime_t rtime, stime, utime;
 
 	if (vtime_accounting_enabled()) {
 		*ut = curr->utime;
 		*st = curr->stime;
 		return;
 	}
-
-	stime = curr->stime;
-	total = stime + curr->utime;
 
 	/*
 	 * Tick based cputime accounting depend on random scheduling
@@ -589,13 +586,19 @@ static void cputime_adjust(struct task_cputime *curr,
 	if (prev->stime + prev->utime >= rtime)
 		goto out;
 
-	if (total) {
+	stime = curr->stime;
+	utime = curr->utime;
+
+	if (utime == 0) {
+		stime = rtime;
+	} else if (stime == 0) {
+		utime = rtime;
+	} else {
+		cputime_t total = stime + utime;
+
 		stime = scale_stime((__force u64)stime,
 				    (__force u64)rtime, (__force u64)total);
 		utime = rtime - stime;
-	} else {
-		stime = rtime;
-		utime = 0;
 	}
 
 	/*
@@ -747,17 +750,17 @@ void arch_vtime_task_switch(struct task_struct *prev)
 
 	write_seqlock(&current->vtime_seqlock);
 	current->vtime_snap_whence = VTIME_SYS;
-	current->vtime_snap = sched_clock();
+	current->vtime_snap = sched_clock_cpu(smp_processor_id());
 	write_sequnlock(&current->vtime_seqlock);
 }
 
-void vtime_init_idle(struct task_struct *t)
+void vtime_init_idle(struct task_struct *t, int cpu)
 {
 	unsigned long flags;
 
 	write_seqlock_irqsave(&t->vtime_seqlock, flags);
 	t->vtime_snap_whence = VTIME_SYS;
-	t->vtime_snap = sched_clock();
+	t->vtime_snap = sched_clock_cpu(cpu);
 	write_sequnlock_irqrestore(&t->vtime_seqlock, flags);
 }
 

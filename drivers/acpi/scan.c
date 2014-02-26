@@ -237,13 +237,13 @@ static void acpi_scan_bus_device_check(acpi_handle handle, u32 ost_source)
 
 	mutex_lock(&acpi_scan_lock);
 
-	acpi_bus_get_device(handle, &device);
-	if (device) {
-		dev_warn(&device->dev, "Attempt to re-insert\n");
-		goto out;
+	if (ost_source != ACPI_NOTIFY_BUS_CHECK) {
+		acpi_bus_get_device(handle, &device);
+		if (device) {
+			dev_warn(&device->dev, "Attempt to re-insert\n");
+			goto out;
+		}
 	}
-	acpi_evaluate_hotplug_ost(handle, ost_source,
-				  ACPI_OST_SC_INSERT_IN_PROGRESS, NULL);
 	error = acpi_bus_scan(handle);
 	if (error) {
 		acpi_handle_warn(handle, "Namespace scan failure\n");
@@ -1017,11 +1017,8 @@ acpi_bus_driver_init(struct acpi_device *device, struct acpi_driver *driver)
 		return -ENOSYS;
 
 	result = driver->ops.add(device);
-	if (result) {
-		device->driver = NULL;
-		device->driver_data = NULL;
+	if (result)
 		return result;
-	}
 
 	device->driver = driver;
 
@@ -1793,7 +1790,7 @@ static void acpi_scan_init_hotplug(acpi_handle handle, int type)
 	 */
 	list_for_each_entry(hwid, &pnp.ids, list) {
 		handler = acpi_scan_match_handler(hwid->id, NULL);
-		if (handler) {
+		if (handler && !handler->hotplug.ignore) {
 			acpi_install_notify_handler(handle, ACPI_SYSTEM_NOTIFY,
 					acpi_hotplug_notify_cb, handler);
 			break;
@@ -1892,6 +1889,9 @@ static acpi_status acpi_bus_device_attach(acpi_handle handle, u32 lvl_not_used,
 
 	if (acpi_bus_get_device(handle, &device))
 		return AE_CTRL_DEPTH;
+
+	if (device->handler)
+		return AE_OK;
 
 	ret = acpi_scan_attach_handler(device);
 	if (ret)
@@ -2043,8 +2043,10 @@ int __init acpi_scan_init(void)
 	acpi_pci_link_init();
 	acpi_platform_init();
 	acpi_lpss_init();
+	acpi_cmos_rtc_init();
 	acpi_container_init();
 	acpi_memory_hotplug_init();
+	acpi_dock_init();
 
 	mutex_lock(&acpi_scan_lock);
 	/*

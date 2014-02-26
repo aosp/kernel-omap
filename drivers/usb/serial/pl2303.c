@@ -141,6 +141,8 @@ struct pl2303_private {
 	spinlock_t lock;
 	u8 line_control;
 	u8 line_status;
+
+	u8 line_settings[7];
 };
 
 static int pl2303_vendor_read(__u16 value, __u16 index,
@@ -280,11 +282,7 @@ static void pl2303_set_termios(struct tty_struct *tty,
 	int baud_floor, baud_ceil;
 	int k;
 
-	/* The PL2303 is reported to lose bytes if you change
-	   serial settings even to the same values as before. Thus
-	   we actually need to filter in this specific case */
-
-	if (!tty_termios_hw_change(&tty->termios, old_termios))
+	if (old_termios && !tty_termios_hw_change(&tty->termios, old_termios))
 		return;
 
 	cflag = tty->termios.c_cflag;
@@ -293,7 +291,8 @@ static void pl2303_set_termios(struct tty_struct *tty,
 	if (!buf) {
 		dev_err(&port->dev, "%s - out of memory.\n", __func__);
 		/* Report back no change occurred */
-		tty->termios = *old_termios;
+		if (old_termios)
+			tty->termios = *old_termios;
 		return;
 	}
 
@@ -303,24 +302,22 @@ static void pl2303_set_termios(struct tty_struct *tty,
 	dev_dbg(&port->dev, "0xa1:0x21:0:0  %d - %x %x %x %x %x %x %x\n", i,
 	    buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6]);
 
-	if (cflag & CSIZE) {
-		switch (cflag & CSIZE) {
-		case CS5:
-			buf[6] = 5;
-			break;
-		case CS6:
-			buf[6] = 6;
-			break;
-		case CS7:
-			buf[6] = 7;
-			break;
-		default:
-		case CS8:
-			buf[6] = 8;
-			break;
-		}
-		dev_dbg(&port->dev, "data bits = %d\n", buf[6]);
+	switch (cflag & CSIZE) {
+	case CS5:
+		buf[6] = 5;
+		break;
+	case CS6:
+		buf[6] = 6;
+		break;
+	case CS7:
+		buf[6] = 7;
+		break;
+	default:
+	case CS8:
+		buf[6] = 8;
+		break;
 	}
+	dev_dbg(&port->dev, "data bits = %d\n", buf[6]);
 
 	/* For reference buf[0]:buf[3] baud rate value */
 	/* NOTE: Only the values defined in baud_sup are supported !
@@ -423,17 +420,36 @@ static void pl2303_set_termios(struct tty_struct *tty,
 		dev_dbg(&port->dev, "parity = none\n");
 	}
 
-	i = usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev, 0),
-			    SET_LINE_REQUEST, SET_LINE_REQUEST_TYPE,
-			    0, 0, buf, 7, 100);
-	dev_dbg(&port->dev, "0x21:0x20:0:0  %d\n", i);
+	/*
+	 * Some PL2303 are known to lose bytes if you change serial settings
+	 * even to the same values as before. Thus we actually need to filter
+	 * in this specific case.
+	 *
+	 * Note that the tty_termios_hw_change check above is not sufficient
+	 * as a previously requested baud rate may differ from the one
+	 * actually used (and stored in old_termios).
+	 *
+	 * NOTE: No additional locking needed for line_settings as it is
+	 *       only used in set_termios, which is serialised against itself.
+	 */
+	if (!old_termios || memcmp(buf, priv->line_settings, 7)) {
+		i = usb_control_msg(serial->dev,
+				    usb_sndctrlpipe(serial->dev, 0),
+				    SET_LINE_REQUEST, SET_LINE_REQUEST_TYPE,
+				    0, 0, buf, 7, 100);
+
+		dev_dbg(&port->dev, "0x21:0x20:0:0  %d\n", i);
+
+		if (i == 7)
+			memcpy(priv->line_settings, buf, 7);
+	}
 
 	/* change control lines if we are switching to or from B0 */
 	spin_lock_irqsave(&priv->lock, flags);
 	control = priv->line_control;
 	if ((cflag & CBAUD) == B0)
 		priv->line_control &= ~(CONTROL_DTR | CONTROL_RTS);
-	else if ((old_termios->c_cflag & CBAUD) == B0)
+	else if (old_termios && (old_termios->c_cflag & CBAUD) == B0)
 		priv->line_control |= (CONTROL_DTR | CONTROL_RTS);
 	if (control != priv->line_control) {
 		control = priv->line_control;
@@ -492,7 +508,6 @@ static void pl2303_close(struct usb_serial_port *port)
 
 static int pl2303_open(struct tty_struct *tty, struct usb_serial_port *port)
 {
-	struct ktermios tmp_termios;
 	struct usb_serial *serial = port->serial;
 	struct pl2303_serial_private *spriv = usb_get_serial_data(serial);
 	int result;
@@ -508,7 +523,7 @@ static int pl2303_open(struct tty_struct *tty, struct usb_serial_port *port)
 
 	/* Setup termios */
 	if (tty)
-		pl2303_set_termios(tty, port, &tmp_termios);
+		pl2303_set_termios(tty, port, NULL);
 
 	result = usb_submit_urb(port->interrupt_in_urb, GFP_KERNEL);
 	if (result) {

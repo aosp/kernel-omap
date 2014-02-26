@@ -1521,11 +1521,25 @@ static struct omap_hwmod am33xx_uart1_hwmod = {
 	},
 };
 
+/* uart2 */
+static struct omap_hwmod_dma_info uart2_edma_reqs[] = {
+	{ .name = "tx",	.dma_req = 28, },
+	{ .name = "rx",	.dma_req = 29, },
+	{ .dma_req = -1 }
+};
+
+static struct omap_hwmod_irq_info am33xx_uart2_irqs[] = {
+	{ .irq = 73 + OMAP_INTC_START, },
+	{ .irq = -1 },
+};
+
 static struct omap_hwmod am33xx_uart2_hwmod = {
 	.name		= "uart2",
 	.class		= &uart_class,
 	.clkdm_name	= "l4ls_clkdm",
 	.flags		= HWMOD_SWSUP_SIDLE_ACT,
+	.mpu_irqs	= am33xx_uart2_irqs,
+	.sdma_reqs	= uart2_edma_reqs,
 	.main_clk	= "dpll_per_m2_div4_ck",
 	.prcm		= {
 		.omap4	= {

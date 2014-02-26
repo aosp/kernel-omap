@@ -1092,8 +1092,8 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
 	}
 
 	port->index = -1;
-	team_port_enable(team, port);
 	list_add_tail_rcu(&port->list, &team->port_list);
+	team_port_enable(team, port);
 	__team_compute_features(team);
 	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
 	__team_options_change_check(team);
@@ -1217,6 +1217,8 @@ static int team_user_linkup_option_get(struct team *team,
 	return 0;
 }
 
+static void __team_carrier_check(struct team *team);
+
 static int team_user_linkup_option_set(struct team *team,
 				       struct team_gsetter_ctx *ctx)
 {
@@ -1224,6 +1226,7 @@ static int team_user_linkup_option_set(struct team *team,
 
 	port->user.linkup = ctx->data.bool_val;
 	team_refresh_port_linkup(port);
+	__team_carrier_check(port->team);
 	return 0;
 }
 
@@ -1243,6 +1246,7 @@ static int team_user_linkup_en_option_set(struct team *team,
 
 	port->user.linkup_enabled = ctx->data.bool_val;
 	team_refresh_port_linkup(port);
+	__team_carrier_check(port->team);
 	return 0;
 }
 

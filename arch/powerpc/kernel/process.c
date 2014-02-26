@@ -399,7 +399,8 @@ static inline int __set_dabr(unsigned long dabr, unsigned long dabrx)
 static inline int __set_dabr(unsigned long dabr, unsigned long dabrx)
 {
 	mtspr(SPRN_DABR, dabr);
-	mtspr(SPRN_DABRX, dabrx);
+	if (cpu_has_feature(CPU_FTR_DABRX))
+		mtspr(SPRN_DABRX, dabrx);
 	return 0;
 }
 #else
@@ -598,6 +599,16 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #ifdef CONFIG_PPC_BOOK3S_64
 	struct ppc64_tlb_batch *batch;
 #endif
+
+	/* Back up the TAR across context switches.
+	 * Note that the TAR is not available for use in the kernel.  (To
+	 * provide this, the TAR should be backed up/restored on exception
+	 * entry/exit instead, and be in pt_regs.  FIXME, this should be in
+	 * pt_regs anyway (for debug).)
+	 * Save the TAR here before we do treclaim/trecheckpoint as these
+	 * will change the TAR.
+	 */
+	save_tar(&prev->thread);
 
 	__switch_to_tm(prev);
 
@@ -1368,7 +1379,7 @@ void show_stack(struct task_struct *tsk, unsigned long *stack)
 
 #ifdef CONFIG_PPC64
 /* Called with hard IRQs off */
-void __ppc64_runlatch_on(void)
+void notrace __ppc64_runlatch_on(void)
 {
 	struct thread_info *ti = current_thread_info();
 	unsigned long ctrl;
@@ -1381,7 +1392,7 @@ void __ppc64_runlatch_on(void)
 }
 
 /* Called with hard IRQs off */
-void __ppc64_runlatch_off(void)
+void notrace __ppc64_runlatch_off(void)
 {
 	struct thread_info *ti = current_thread_info();
 	unsigned long ctrl;

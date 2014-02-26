@@ -764,8 +764,8 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
 	struct net_device *bond_dev, *vlan_dev, *upper_dev;
 	struct vlan_entry *vlan;
 
-	rcu_read_lock();
 	read_lock(&bond->lock);
+	rcu_read_lock();
 
 	bond_dev = bond->dev;
 
@@ -787,12 +787,19 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
 		if (vlan_dev)
 			__bond_resend_igmp_join_requests(vlan_dev);
 	}
-
-	if (--bond->igmp_retrans > 0)
-		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
-
-	read_unlock(&bond->lock);
 	rcu_read_unlock();
+
+	/* We use curr_slave_lock to protect against concurrent access to
+	 * igmp_retrans from multiple running instances of this function and
+	 * bond_change_active_slave
+	 */
+	write_lock_bh(&bond->curr_slave_lock);
+	if (bond->igmp_retrans > 1) {
+		bond->igmp_retrans--;
+		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
+	}
+	write_unlock_bh(&bond->curr_slave_lock);
+	read_unlock(&bond->lock);
 }
 
 static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
@@ -1957,6 +1964,10 @@ err_free:
 
 err_undo_flags:
 	bond_compute_features(bond);
+	/* Enslave of first slave has failed and we need to fix master's mac */
+	if (bond->slave_cnt == 0 &&
+	    ether_addr_equal(bond_dev->dev_addr, slave_dev->dev_addr))
+		eth_hw_addr_random(bond_dev);
 
 	return res;
 }
@@ -1980,6 +1991,7 @@ static int __bond_release_one(struct net_device *bond_dev,
 	struct bonding *bond = netdev_priv(bond_dev);
 	struct slave *slave, *oldcurrent;
 	struct sockaddr addr;
+	int old_flags = bond_dev->flags;
 	netdev_features_t old_features = bond_dev->features;
 
 	/* slave is not a slave or master is not master of this slave */
@@ -2112,12 +2124,18 @@ static int __bond_release_one(struct net_device *bond_dev,
 	 * already taken care of above when we detached the slave
 	 */
 	if (!USES_PRIMARY(bond->params.mode)) {
-		/* unset promiscuity level from slave */
-		if (bond_dev->flags & IFF_PROMISC)
+		/* unset promiscuity level from slave
+		 * NOTE: The NETDEV_CHANGEADDR call above may change the value
+		 * of the IFF_PROMISC flag in the bond_dev, but we need the
+		 * value of that flag before that change, as that was the value
+		 * when this slave was attached, so we cache at the start of the
+		 * function and use it here. Same goes for ALLMULTI below
+		 */
+		if (old_flags & IFF_PROMISC)
 			dev_set_promiscuity(slave_dev, -1);
 
 		/* unset allmulti level from slave */
-		if (bond_dev->flags & IFF_ALLMULTI)
+		if (old_flags & IFF_ALLMULTI)
 			dev_set_allmulti(slave_dev, -1);
 
 		/* flush master's mc_list from slave */
@@ -2402,7 +2420,8 @@ static void bond_miimon_commit(struct bonding *bond)
 
 			pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
 				bond->dev->name, slave->dev->name,
-				slave->speed, slave->duplex ? "full" : "half");
+				slave->speed == SPEED_UNKNOWN ? 0 : slave->speed,
+				slave->duplex ? "full" : "half");
 
 			/* notify ad that the link status has changed */
 			if (bond->params.mode == BOND_MODE_8023AD)
@@ -3758,11 +3777,17 @@ static int bond_neigh_init(struct neighbour *n)
  * The bonding ndo_neigh_setup is called at init time beofre any
  * slave exists. So we must declare proxy setup function which will
  * be used at run time to resolve the actual slave neigh param setup.
+ *
+ * It's also called by master devices (such as vlans) to setup their
+ * underlying devices. In that case - do nothing, we're already set up from
+ * our init.
  */
 static int bond_neigh_setup(struct net_device *dev,
 			    struct neigh_parms *parms)
 {
-	parms->neigh_setup   = bond_neigh_init;
+	/* modify only our neigh_parms */
+	if (parms->dev == dev)
+		parms->neigh_setup = bond_neigh_init;
 
 	return 0;
 }
