@@ -75,6 +75,11 @@
 			ti,hwmods = "counter_32k";
 		};
 
+		sysclk: sys {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
 		dpll1: dpll1 {
 			#clock-cells = <0>;
 			compatible = "ti,omap-clock";
@@ -367,6 +372,18 @@
 			interrupt-names = "common", "tx", "rx";
 			ti,buffer-size = <128>;
 			ti,hwmods = "mcbsp5";
+		};
+
+		mailbox: mailbox@48094000 {
+			compatible = "ti,omap2-mailbox";
+			reg = <0x48094000 0x200>;
+			interrupts = <26>;
+			ti,hwmods = "mailbox";
+			ti,mbox-num-users = <2>;
+			ti,mbox-num-fifos = <2>;
+			#ti,mbox-data-cells = <4>;
+			ti,mbox-names = "dsp";
+			ti,mbox-data = <0 1 0 0>;
 		};
 
 		timer1: timer@48318000 {

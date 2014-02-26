@@ -2631,10 +2631,11 @@ int omapfb_enable_vsync(struct omapfb2_device *fbdev, enum omap_channel ch,
 	const u32 masks[] = {
 		DISPC_IRQ_VSYNC,
 		DISPC_IRQ_EVSYNC_EVEN,
-		DISPC_IRQ_VSYNC2
+		DISPC_IRQ_VSYNC2,
+		DISPC_IRQ_VSYNC3
 	};
 
-	if (ch > OMAP_DSS_CHANNEL_LCD2) {
+	if (ch > OMAP_DSS_CHANNEL_LCD3) {
 		pr_warn("%s wrong channel number\n", __func__);
 		return -ENODEV;
 	}
@@ -2873,7 +2874,7 @@ module_param_named(mirror, def_mirror, bool, 0);
 /* late_initcall to let panel/ctrl drivers loaded first.
  * I guess better option would be a more dynamic approach,
  * so that omapfb reacts to new panels when they are loaded */
-late_initcall(omapfb_init);
+module_init(omapfb_init);
 /*module_init(omapfb_init);*/
 module_exit(omapfb_exit);
 

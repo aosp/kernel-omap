@@ -60,7 +60,7 @@ static const struct omap_video_timings tfc_s9700_default_timings = {
 	.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
 	.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
-	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,
+	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 };
 
 struct panel_drv_data {
@@ -135,6 +135,11 @@ err0:
 static void tfc_s9700_power_off(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(&dssdev->dev);
+
+#ifdef CONFIG_DISPLAY_SKIP_INIT
+	if (omapdss_skipinit())
+		return;
+#endif
 
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
 		return;
