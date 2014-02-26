@@ -248,7 +248,8 @@ IS_AM_SUBCLASS(335x, 0x335)
 #define soc_is_omap54xx()		0
 #define soc_is_omap543x()		0
 #define soc_is_dra7xx()			0
-#define soc_is_dra75x()			0
+#define soc_is_dra74x()			0
+#define soc_is_dra72x()			0
 
 #if defined(MULTI_OMAP2)
 # if defined(CONFIG_ARCH_OMAP2)
@@ -390,9 +391,11 @@ IS_OMAP_TYPE(3430, 0x3430)
 
 # if defined(CONFIG_SOC_DRA7XX)
 # undef soc_is_dra7xx
-# undef soc_is_dra75x
+#undef soc_is_dra74x
+#undef soc_is_dra72x
 # define soc_is_dra7xx()		is_dra7xx()
-# define soc_is_dra75x()		is_dra75x()
+# define soc_is_dra74x()		is_dra74x()
+# define soc_is_dra72x()		is_dra72x()
 #endif
 
 /* Various silicon revisions for omap2 */
