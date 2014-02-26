@@ -17,6 +17,10 @@
 		device_type = "memory";
 		reg = <0x80000000 0x40000000>; /* 1024 MB */
 	};
+
+	chosen {
+		bootargs = "console=ttyO0,3000000n8 root=/dev/ram rw initrd=0x82000000,10MB earlyprintk";
+	};
 };
 
 &uart1 {
