@@ -62,6 +62,24 @@
 #define OMAP_IOMMU_ERR_TBLWALK_FAULT	(1 << 3)
 #define OMAP_IOMMU_ERR_MULTIHIT_FAULT	(1 << 4)
 
+static void dra7_cfg_dspsys_mmu(struct omap_iommu *obj, bool enable)
+{
+	u32 val, mask, id = 0;
+
+	if (!obj->syscfgbase)
+		return;
+
+	val = __raw_readl(obj->syscfgbase + DSP_SYS_MMU_CONFIG);
+	/* TODO: Need to adjust the logic for MMU1 in each DSP */
+	mask = (1 << (id * DSP_SYS_MMU_EN_SHIFT));
+	if (enable)
+		val |= mask;
+	else
+		val &= ~mask;
+
+	__raw_writel(val, obj->syscfgbase + DSP_SYS_MMU_CONFIG);
+}
+
 static void __iommu_set_twl(struct omap_iommu *obj, bool on)
 {
 	u32 l = iommu_read_reg(obj, MMU_CNTL);
@@ -84,6 +102,7 @@ static void __iommu_set_twl(struct omap_iommu *obj, bool on)
 static int omap2_iommu_enable(struct omap_iommu *obj)
 {
 	u32 l, pa;
+	struct iommu_platform_data *pdata = obj->dev->platform_data;
 
 	if (!obj->iopgd || !IS_ALIGNED((u32)obj->iopgd,  SZ_16K))
 		return -EINVAL;
@@ -98,6 +117,9 @@ static int omap2_iommu_enable(struct omap_iommu *obj)
 
 	iommu_write_reg(obj, pa, MMU_TTB);
 
+	dra7_cfg_dspsys_mmu(obj, true);
+	if (pdata->has_bus_err_back)
+		iommu_write_reg(obj, MMU_GP_REG_BUS_ERR_BACK_EN, MMU_GP_REG);
 	__iommu_set_twl(obj, true);
 
 	return 0;
@@ -109,6 +131,7 @@ static void omap2_iommu_disable(struct omap_iommu *obj)
 
 	l &= ~MMU_CNTL_MASK;
 	iommu_write_reg(obj, l, MMU_CNTL);
+	dra7_cfg_dspsys_mmu(obj, false);
 
 	dev_dbg(obj->dev, "%s is shutting down\n", obj->name);
 }

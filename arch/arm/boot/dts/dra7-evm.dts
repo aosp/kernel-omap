@@ -7,6 +7,12 @@
  */
 /dts-v1/;
 
+/*
+ * Memory is reserved for ipu1 for rearview camera
+ */
+/memreserve/ 0x8E000000 0x1000000;
+/memreserve/ 0xA0000000 0x1800000;
+
 /include/ "dra7.dtsi"
 
 / {
@@ -15,7 +21,7 @@
 
 	cpus {
 		cpu@0 {
-			cpu0-supply = <&avs_mpu>;
+			cpu0-supply = <&abb_mpu>;
 		};
 	};
 
@@ -31,9 +37,29 @@
 		regulator-max-microvolt = <3000000>;
 	};
 
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 0>;	/* gpio5_8 */
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+
+	wlcore {
+		compatible = "wlcore";
+		gpio = <135>;
+	};
+
+	earlycam_config {
+		compatible = "ti,earlycam_mpu";
+		gpios = <&pcf_lcd 0 1>; /* P0, CON_LCD_PWR_DN */
+	};
+
 	ocp {
 		gpu: gpu@0x56000000 {
-			gpu-supply = <&avs_gpu>;
+			gpu-supply = <&abb_gpu>;
 		};
 	};
 
@@ -58,6 +84,8 @@
 		ti,model = "dra7evm";
 		ti,always-on;
 
+		gpios = <&pcf_hdmi 1 0>;
+
 		/* Audio routing */
 		ti,audio-routing =
 			"LINE1L", "Line In",
@@ -68,13 +96,35 @@
 			"Headphone", "HPLOUT",
 			"Headphone", "HPROUT",
 			"Line Out", "LLOUT",
-			"Line Out", "RLOUT";
+			"Line Out", "RLOUT",
+			"J3A LINE1L", "JAMR3 Stereo Aux In",
+			"J3A LINE1R", "JAMR3 Stereo Aux In",
+			"J3B LINE1L", "JAMR3 Mono Mic 1",
+			"J3B LINE1R", "JAMR3 Mono Mic 2",
+			"JAMR3 Line Out 1", "J3A LLOUT",
+			"JAMR3 Line Out 1", "J3A RLOUT",
+			"JAMR3 Line Out 2", "J3B LLOUT",
+			"JAMR3 Line Out 2", "J3B RLOUT",
+			"JAMR3 Line Out 3", "J3C LLOUT",
+			"JAMR3 Line Out 3", "J3C RLOUT";
 
 		/* Media DAI link */
 		ti,media-cpu = <&mcasp3>;
 		ti,media-codec = <&tlv320aic3106>;
 		ti,media-mclk-freq = <5644800>;
 		ti,media-slots = <2>;
+
+		/* Multichannel DAI link */
+		ti,multichannel-cpu = <&mcasp6>;
+		ti,multichannel-codec-a = <&tlv320aic3106a>;
+		ti,multichannel-codec-b = <&tlv320aic3106b>;
+		ti,multichannel-codec-c = <&tlv320aic3106c>;
+		ti,multichannel-slots = <8>;
+		ti,multichannel-mclk-freq = <11289600>;
+
+		/* Bluetooth */
+		ti,bt-cpu = <&mcasp7>;
+		ti,bt-bclk-freq = <512000>;
 	};
 
 	sound_hdmi {
@@ -83,6 +133,41 @@
 		ti,hdmi_audio = <&hdmi>;
 		ti,level_shifter = <&tpd12s015>;
 	};
+
+	radio {
+		compatible = "ti,dra7xx_radio";
+		gpios = <&gpio6 20 0>;
+
+		radio_helper1 {
+			compatible = "ti,dra7xx_radio_subdev";
+			ti,hwmods = "mcasp2";
+			status = "okay";
+		};
+
+		radio_helper2 {
+			compatible = "ti,dra7xx_radio_subdev";
+			ti,hwmods = "mcasp6";
+			status = "okay";
+		};
+	};
+
+	kim {
+		compatible = "kim";
+		nshutdown_gpio = <132>;
+		dev_name = "/dev/ttyO2";
+		flow_cntrl = <1>;
+		baud_rate = <3686400>;
+		gpios = <&pcf_lcd3 14 0>; /* pcf8575@21 P16 */
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
+
+	display_skipinit {
+		skip_init =<1>;
+	};
+
 };
 
 &dra7_pmx_core {
@@ -91,9 +176,16 @@
 		&atl_pins
 		&mcasp3_pins
 		&mcasp6_pins
+		&mcasp7_pins
+		&mcasp8_pins
 		&vout1_pins
+		&vout3_pins
 		&usb_pins
 		&irq_pins
+		&bt_uart3_pins
+		&wl_pins
+		&wlirq_pins
+		&radio_pins
 	>;
 
 	atl_pins: pinmux_atl_pins {
@@ -105,27 +197,42 @@
 
 	mcasp3_pins: pinmux_mcasp3_pins {
 		pinctrl-single,pins = <
-			0x324 0x00000000	/* mcasp3_aclkx.mcasp3_aclkx OUTPUT | MODE0 */
-			0x328 0x00000000	/* mcasp3_fsx.mcasp3_fsx OUTPUT | MODE0 */
-			0x32c 0x00000000	/* mcasp3_axr0.mcasp3_axr0 OUTPUT | MODE0 */
-			0x330 0x00040000	/* mcasp3_axr1.mcasp3_axr1 INPUT | MODE0 */
+			0x324 0x00000180	/* mcasp3_aclkx.mcasp3_aclkx OUTPUT | MODE0 */
+			0x328 0x00000180	/* mcasp3_fsx.mcasp3_fsx OUTPUT | MODE0 */
+			0x32c 0x00000180	/* mcasp3_axr0.mcasp3_axr0 OUTPUT | MODE0 */
+			0x330 0x00040160	/* mcasp3_axr1.mcasp3_axr1 INPUT | MODE0 */
 		>;
 	};
 
 	mcasp6_pins: pinmux_mcasp6_pins {
 		pinctrl-single,pins = <
-			0x2d4 0x00000001	/* mcasp1_axr8.mcasp6_axr0 OUTPUT | MODE1 */
-			0x2d8 0x00040001	/* mcasp1_axr9.mcasp6_axr1 INPUT | MODE 1 */
-			0x2dc 0x00000001	/* mcasp1_axr10.mcasp6_clkx OUTPUT | MODE1 */
-			0x2e0 0x00000001	/* mcasp1_axr11.mcasp6_fsx OUTPUT | MODE1 */
+			0x2d4 0x000001a1	/* mcasp1_axr8.mcasp6_axr0 OUTPUT | MODE1 */
+			0x2d8 0x000401a1	/* mcasp1_axr9.mcasp6_axr1 INPUT | MODE 1 */
+			0x2dc 0x000001a1	/* mcasp1_axr10.mcasp6_clkx OUTPUT | MODE1 */
+			0x2e0 0x000001a1	/* mcasp1_axr11.mcasp6_fsx OUTPUT | MODE1 */
 		>;
+	};
+
+	mcasp7_pins: pinmux_mcasp7_pins {
+		pinctrl-single,pins = <
+			0x2e4 0x000401a1	/* mcasp1_axr12.mcasp7_axr0 INPUT | MODE 1 */
+			0x2e8 0x000001a1	/* mcasp1_axr13.mcasp7_axr1 OUTPUT | MODE 1 */
+			0x2ec 0x000401a1	/* mcasp1_axr14.mcasp7_clkx INPUT | MODE1 */
+			0x2f0 0x000401a1	/* mcasp1_axr15.mcasp7_fsx INPUT | MODE1 */
+		>;
+	};
+
+	mcasp8_pins: pinmux_mcasp8_pins {
+		pinctrl-single,pins = <
+			0x2fc 0x00040001	/* mcasp2_aclkr.mcasp8_axr2 OUTPUT | MODE1 */
+		>;
+	};
 
 	irq_pins: pinmux_irq_pins {
                 pinctrl-single,pins = <
 			0x420	0x1	/* Wakeup2 INPUT | MODE1 */
                 >;
         };
-	};
 
 	usb_pins: pinmux_usb_pins {
                 pinctrl-single,pins = <
@@ -175,6 +282,98 @@
 		>;
 	};
 
+	vout3_pins: pinmux_vout3_pins {
+		pinctrl-single,pins = <
+			0x000	0x3	/*GPMC_AD0  = VOUT3_D0*/
+			0x004	0x3	/*GPMC_AD1  = VOUT3_D1*/
+			0x008	0x3	/*GPMC_AD2  = VOUT3_D2*/
+			0x00c	0x3	/*GPMC_AD3  = VOUT3_D3*/
+			0x010	0x3	/*GPMC_AD4  = VOUT3_D4*/
+			0x014	0x3	/*GPMC_AD5  = VOUT3_D5*/
+			0x018	0x3	/*GPMC_AD6  = VOUT3_D6*/
+			0x01c	0x3	/*GPMC_AD7  = VOUT3_D7*/
+			0x020	0x3	/*GPMC_AD8  = VOUT3_D8*/
+			0x024	0x3	/*GPMC_AD9  = VOUT3_D9*/
+			0x028	0x3	/*GPMC_AD10 = VOUT3_D10*/
+			0x02c	0x3	/*GPMC_AD11 = VOUT3_D11*/
+			0x030	0x3	/*GPMC_AD12 = VOUT3_D12*/
+			0x034	0x3	/*GPMC_AD13 = VOUT3_D13*/
+			0x038	0x3	/*GPMC_AD14 = VOUT3_D14*/
+			0x03c	0x3	/*GPMC_AD15 = VOUT3_D15*/
+			0x040	0x3	/*GPMC_A0   = VOUT3_D16*/
+			0x044	0x3	/*GPMC_A1   = VOUT3_D17*/
+			0x048	0x3	/*GPMC_A2   = VOUT3_D18*/
+			0x04c	0x3	/*GPMC_A3   = VOUT3_D19*/
+			0x050	0x3	/*GPMC_A4   = VOUT3_D20*/
+			0x054	0x3	/*GPMC_A5   = VOUT3_D21*/
+			0x058	0x3	/*GPMC_A6   = VOUT3_D22*/
+			0x05c	0x3	/*GPMC_A7   = VOUT3_D23*/
+			0x060	0x3	/*GPMC_A8   = VOUT3_HSYNC*/
+			0x064	0x3	/*GPMC_A9   = VOUT3_VSYNC*/
+			0x068	0x3	/*GPMC_A10  = VOUT3_DE*/
+			0x06c	0x3	/*GPMC_A11  = VOUT3_FLD*/
+			0x0bc	0x3	/*GPMC_CS3  = VOUT3_CLK*/
+		>;
+	};
+
+	vin1a_pins: pinmux_vin1a_pins {
+		pinctrl-single,pins = <
+			0x0DC	0x00040000 /* vin1a_clk0 OUTPUT | MODE0 */
+			0x0E4	0x00040000 /* vin1a_de0 OUTPUT | MODE0 */
+			0x0E8	0x00040000 /* vin1a_fld0 OUTPUT | MODE0 */
+			0x0EC	0x00040000 /* vin1a_hsync0	OUTPUT | MODE0 */
+			0x0F0	0x00040000 /* vin1a_vsync0 OUTPUT | MODE0 */
+			0x0F4	0x00040000 /* vin1a_d0	OUTPUT | MODE0 */
+			0x0F8	0x00040000 /* vin1a_d1	OUTPUT | MODE0 */
+			0x0FC	0x00040000 /* vin1a_d2	OUTPUT | MODE0 */
+			0x100	0x00040000 /* vin1a_d3 	OUTPUT | MODE0 */
+			0x104	0x00040000 /* vin1a_d4 	OUTPUT | MODE0 */
+			0x108	0x00040000 /* vin1a_d5	OUTPUT | MODE0 */
+			0x10C	0x00040000 /* vin1a_d6	OUTPUT | MODE0 */
+			0x110	0x00040000 /* vin1a_d7	OUTPUT | MODE0 */
+			0x114	0x00040000 /* vin1a_d8	OUTPUT | MODE0 */
+			0x118	0x00040000 /* vin1a_d9	OUTPUT | MODE0 */
+			0x11C	0x00040000 /* vin1a_d10	OUTPUT | MODE0 */
+			0x120	0x00040000 /* vin1a_d11	OUTPUT | MODE0 */
+			0x124	0x00040000 /* vin1a_d12	OUTPUT | MODE0 */
+			0x128	0x00040000 /* vin1a_d13	OUTPUT | MODE0 */
+			0x12C	0x00040000 /* vin1a_d14	OUTPUT | MODE0 */
+			0x130	0x00040000 /* vin1a_d15	OUTPUT | MODE0 */
+		>;
+	};
+
+        vin3a_pins: pinmux_vin3a_pins {
+		pinctrl-single,pins = <
+			0x0E0	0x00040006 /* vin3a_clk0 OUTPUT | MODE0 */
+			0x1C0	0x00040005 /* vin3a_hsync0 OUTPUT | MODE0 */
+			0x1C4	0x00040005 /* vin3a_vsync0 OUTPUT | MODE0 */
+			0x134	0x00040006 /* vin3a_d0	OUTPUT | MODE0 */
+			0x138	0x00040006 /* vin3a_d1	OUTPUT | MODE0 */
+			0x13C	0x00040006 /* vin3a_d2	OUTPUT | MODE0 */
+			0x140	0x00040006 /* vin3a_d3 	OUTPUT | MODE0 */
+			0x144	0x00040006 /* vin3a_d4 	OUTPUT | MODE0 */
+			0x148	0x00040006 /* vin3a_d5	OUTPUT | MODE0 */
+			0x14C	0x00040006 /* vin3a_d6	OUTPUT | MODE0 */
+			0x150	0x00040006 /* vin3a_d7	OUTPUT | MODE0 */
+                >;
+        };
+
+	vin5a_pins: pinmux_vin5a_pins {
+		pinctrl-single,pins = <
+			0x374	0x00040009 /* vin5a_clk0 OUTPUT | MODE0 */
+			0x39c	0x00040009 /* vin5a_hsync0 OUTPUT | MODE0 */
+			0x3a0	0x00040009 /* vin5a_vsync0 OUTPUT | MODE0 */
+			0x398	0x00040009 /* vin5a_d0	OUTPUT | MODE0 */
+			0x394	0x00040009 /* vin5a_d1	OUTPUT | MODE0 */
+			0x390	0x00040009 /* vin5a_d2	OUTPUT | MODE0 */
+			0x38c	0x00040009 /* vin5a_d3 	OUTPUT | MODE0 */
+			0x388	0x00040009 /* vin5a_d4 	OUTPUT | MODE0 */
+			0x384	0x00040009 /* vin5a_d5	OUTPUT | MODE0 */
+			0x380	0x00040009 /* vin5a_d6	OUTPUT | MODE0 */
+			0x37c	0x00040009 /* vin5a_d7	OUTPUT | MODE0 */
+                >;
+        };
+
 	cpsw_default_pins: pinmux_cpsw_default_pins {
 		pinctrl-single,pins = <
 			/* Slave 1 */
@@ -192,18 +391,18 @@
 			0x27c	0x00040000 /* rgmii1_rd0 PIN_INPUT | MUX_MODE0 */
 
 			/* Slave 2 */
-			0x198	0x4 /* rgmii2_tclk PIN_OUTPUT | MUX_MODE4 */
-			0x19c	0x4 /* rgmii2_tctl PIN_OUTPUT | MUX_MODE4 */
-			0x1a0	0x4 /* rgmii2_td3 PIN_OUTPUT | MUX_MODE4 */
-			0x1a4	0x4 /* rgmii2_td2 PIN_OUTPUT | MUX_MODE4 */
-			0x1a8	0x4 /* rgmii2_td1 PIN_OUTPUT | MUX_MODE4 */
-			0x1ac	0x4 /* rgmii2_td0 PIN_OUTPUT | MUX_MODE4 */
-			0x1b0	0x00040004 /* rgmii2_rclk PIN_INPUT | MUX_MODE4 */
-			0x1b4	0x00040004 /* rgmii2_rctl PIN_INPUT | MUX_MODE4 */
-			0x1b8	0x00040004 /* rgmii2_rd3 PIN_INPUT | MUX_MODE4 */
-			0x1bc	0x00040004 /* rgmii2_rd2 PIN_INPUT | MUX_MODE4 */
-			0x1c0	0x00040004 /* rgmii2_rd1 PIN_INPUT | MUX_MODE4 */
-			0x1c4	0x00040004 /* rgmii2_rd0 PIN_INPUT | MUX_MODE4 */
+			0x198	0x3 /* rgmii2_tclk PIN_OUTPUT | MUX_MODE3 */
+			0x19c	0x3 /* rgmii2_tctl PIN_OUTPUT | MUX_MODE3 */
+			0x1a0	0x3 /* rgmii2_td3 PIN_OUTPUT | MUX_MODE3 */
+			0x1a4	0x3 /* rgmii2_td2 PIN_OUTPUT | MUX_MODE3 */
+			0x1a8	0x3 /* rgmii2_td1 PIN_OUTPUT | MUX_MODE3 */
+			0x1ac	0x3 /* rgmii2_td0 PIN_OUTPUT | MUX_MODE3 */
+			0x1b0	0x00040003 /* rgmii2_rclk PIN_INPUT | MUX_MODE3 */
+			0x1b4	0x00040003 /* rgmii2_rctl PIN_INPUT | MUX_MODE3 */
+			0x1b8	0x00040003 /* rgmii2_rd3 PIN_INPUT | MUX_MODE3 */
+			0x1bc	0x00040003 /* rgmii2_rd2 PIN_INPUT | MUX_MODE3 */
+			0x1c0	0x00040003 /* rgmii2_rd1 PIN_INPUT | MUX_MODE3 */
+			0x1c4	0x00040003 /* rgmii2_rd0 PIN_INPUT | MUX_MODE3 */
 				>;
 		};
 
@@ -214,12 +413,73 @@
 			0x240	0x70000 /* mdio_clk PIN_INPUT_PULLUP | MUX_MODE0 */
 				>;
 		};
+
+	bt_uart3_pins: pinmux_bt_uart3_pins {
+		pinctrl-single,pins = <
+			0x3c0 0x60001	/* spi2_sclk.uart3_rx:  INPUT | PULLUP | MODE 1 */
+			0x3c4 0x10001	/* spi2_d1.uart3_tx:    OUTPUT |  MODE 1 */
+			0x3c8 0x60001	/* spi2_d0.uart3_cts:   INPUT | PULLUP | MODE 1 */
+			0x3cc 0x10001	/* spi2_cs0.uart3_rts:  OUTPUT | MODE 1 */
+			0x2bc 0x0000E	/* BT_EN.gp5_4:         OUTPUT | PULLDEN | MODE 14 */
+		>;
+	};
+
+	wl_pins: pinmux_wl_pins {
+		pinctrl-single,pins = <
+			0x3e8 0x60003	/* MMC4_CLK: INPUTENABLE | PULLUP | MODE3 */
+			0x3ec 0x60003	/* MMC4_CMD: INPUTENABLE | PULLUP | MODE3 */
+			0x3f0 0x60003	/* MMC4_DAT0: INPUTENABLE | PULLUP | MODE3 */
+			0x3f4 0x60003	/* MMC4_DAT1: INPUTENABLE | PULLUP | MODE3 */
+			0x3f8 0x60003	/* MMC4_DAT2: INPUTENABLE | PULLUP | MODE3 */
+			0x3fc 0x60003	/* MMC4_DAT3: INPUTENABLE | PULLUP | MODE3 */
+			0x2cc 0x2000E	/* WLAN_EN: OUTPUT | MODE14 */
+		>;
+	};
+
+	wlirq_pins: pinmux_wlirq_pins {
+		pinctrl-single,pins = <
+			0x2c8 0x106000E	/* WLAN_IRQ: INPUT | WAKEUP_ENABLE | MODE 14 */
+		>;
+	};
+
+	dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			0x3d0	0x00000000	/* DCAN1_TX: MODE0 */
+			0x3d4	0x00060000	/* DCAN1_RX: MODE0 | INPUTENABLE | PULLUP */
+		>;
+	};
+
+	dcan2_pins: pinmux_dcan2_pins {
+		pinctrl-single,pins = <
+			0x288	0x00000002	/* DCAN2_TX: MODE2 */
+			0x28C	0x00060002	/* DCAN2_RX: MODE2 | INPUTENABLE | PULLUP */
+		>;
+	};
+	radio_pins: pinmux_radio_pins {
+		pinctrl-single,pins = <
+			0x02F4	 0x40000	/* MCASP2_ACLKX: MODE0 */
+			0x02F8	 0xc0000	/* MCASP2_AFSX: MODE0 */
+			0x0304	 0x40000	/* MCASP2_AXR0: MODE0 */
+			0x0308	 0x40000	/* MCASP2_AXR1: MODE0 */
+			0x030C	 0xc0000	/* MCASP2_AXR2: MODE0 */
+			0x0310	 0xc0000	/* MCASP2_AXR3: MODE0 */
+			0x0314	 0x40000	/* MCASP2_AXR4: MODE0 */
+			0x0318	 0x40000	/* MCASP2_AXR5: MODE0 */
+			0x031c	 0x40000	/* MCASP2_AXR6: MODE0 */
+			0x0320	 0x40000	/* MCASP2_AXR7: MODE0 */
+			0x0334	 0x70004	/* I2C4_SDA: MODE4 */
+			0x0338	 0x70004	/* I2C4_SCL: MODE4 */
+			0x02A0	 0x5000e	/* GPIO6_20: MODE14 */
+		>;
+	};
+
 };
 
 &gmac {
 	status="okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&cpsw_default_pins>;
+	dual_emac = <1>;
 };
 
 &davinci_mdio {
@@ -247,8 +507,16 @@
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		/* HACK: Using n_latch in cf8575 driver to "drive P10" to not hold ETH0 in reset */
-		n_latch = <0xfeff>;
+		/* HACK: Using n_latch in pcf8575 driver to "drive P10/11" to not hold ETH0/1 in reset */
+		n_latch = <0xfcfe>;
+	};
+
+	pcf_lcd3: pcf8575@21 {
+		compatible = "ti,pcf8575";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		n_latch = <0x1408>;
 	};
 
 	/* TLC chip for LCD panel power and backlight */
@@ -286,6 +554,203 @@
 		reg = <0x26>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		n_latch = <0xfffb>;
+	};
+
+	tlv320aic3106a: tlv320aic3106@18 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+	tlv320aic3106b: tlv320aic3106@19 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x19>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+	tlv320aic3106c: tlv320aic3106@1a {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x1a>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+	camera_ov10633: camera_ov10633 {
+		compatible = "ti,camera-ov10633";
+		gpios = <&pcf_hdmi 2 0>,
+			<&pcf_hdmi 3 0>,
+			<&gpio4 13 0>,
+			<&gpio4 14 0>,
+			<&gpio4 15 0>,
+			<&gpio4 16 0>,
+			<&gpio6 17 0>;
+		ovnode = <&i2c2>;
+	};
+
+	camera_ov10635: camera_ov10635 {
+		compatible = "ti,camera-ov10635";
+		gpios = <&pcf_hdmi 2 0>,
+			<&pcf_hdmi 3 0>,
+			<&gpio4 13 0>,
+			<&gpio4 14 0>,
+			<&gpio4 15 0>,
+			<&gpio4 16 0>,
+			<&gpio6 17 0>;
+		ovnode = <&i2c2>;
+	};
+
+	onboardLI: ov10633@37 {
+		compatible = "omnivision,ov10633";
+		reg = <0x37>;
+	};
+
+        vis_ovcam: ov10635@30 {
+		compatible = "omnivision,ov10635";
+		reg = <0x30>;
+	};
+
+        cam1: ov10635@38 {
+		compatible = "omnivision,ov10635";
+		reg = <0x38>;
+		deserializer = <&vis_des1>;
+		serializer = <&vis_ser1>;
+	};
+
+	cam2: ov10635@39 {
+		compatible = "omnivision,ov10635";
+		reg = <0x39>;
+		deserializer = <&vis_des2>;
+		serializer = <&vis_ser2>;
+	};
+
+	cam3: ov10635@3a {
+		compatible = "omnivision,ov10635";
+		reg = <0x3a>;
+		deserializer = <&vis_des3>;
+		serializer = <&vis_ser3>;
+	};
+
+	cam4: ov10635@3b {
+		compatible = "omnivision,ov10635";
+		reg = <0x3b>;
+		deserializer = <&vis_des4>;
+		serializer = <&vis_ser4>;
+	};
+
+	cam5: ov10635@3c {
+		compatible = "omnivision,ov10635";
+		reg = <0x3c>;
+		deserializer = <&vis_des5>;
+		serializer = <&vis_ser5>;
+	};
+
+	cam6: ov10635@3d {
+		compatible = "omnivision,ov10635";
+		reg = <0x3d>;
+		deserializer = <&vis_des6>;
+		serializer = <&vis_ser6>;
+	};
+
+	hdmirec: hdmirec@31 {
+		compatible = "no,one";
+		reg=<0x31>;
+	};
+
+	expander@27 {
+		compatible = "ti,i2cexp";
+		reg=<0x27>;
+		hdmirec = <&hdmirec>;
+	};
+
+	expander@21 {
+		compatible = "ti,i2cexp";
+		reg=<0x21>;
+		hdmirec = <&hdmirec>;
+	};
+
+	expander@25 {
+		compatible = "ti,i2cexp";
+		reg=<0x25>;
+		hdmirec = <&hdmirec>;
+	};
+
+	vis_des1: ds90ub914aq@60 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x60>;
+	};
+
+	vis_ser1: ds90ub913aq@74 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x74>;
+	};
+
+	vis_des2: ds90ub914aq@64 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x64>;
+	};
+
+	vis_ser2: ds90ub913aq@75 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x75>;
+	};
+
+	vis_des3: ds90ub914aq@68 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x68>;
+	};
+
+	vis_ser3: ds90ub913aq@76 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x76>;
+	};
+
+	vis_des4: ds90ub914aq@6c {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x6c>;
+	};
+
+	vis_ser4: ds90ub913aq@77 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x77>;
+	};
+
+	vis_des5: ds90ub914aq@61 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x61>;
+	};
+
+	vis_ser5: ds90ub913aq@78 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x78>;
+	};
+
+	vis_des6: ds90ub914aq@69 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x69>;
+	};
+
+	vis_ser6: ds90ub913aq@79 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x79>;
+	};
+
+	lvds_fpd: ds90uh925q@1b {
+		compatible = "ti,ds90uh925q";
+		reg = <0x1b>;
+	};
+
+	lvds_fpd1: ds90uh928q@2c {
+		compatible = "ti,ds90uh928q";
+		reg = <0x2c>;
 	};
 };
 
@@ -299,6 +764,18 @@
 
 &i2c5 {
 	clock-frequency = <400000>;
+};
+
+&dcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins>;
+	status = "okay";
+};
+
+&dcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan2_pins>;
+	status = "okay";
 };
 
 &mmc1 {
@@ -319,8 +796,11 @@
 };
 
 &mmc4 {
+	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
-	status = "disabled";
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
 };
 
 &avs_mpu {
@@ -343,6 +823,24 @@
 	avs-supply = <&smps8_reg>;
 };
 
+&vip1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin1a_pins>;
+	sensor0 = <&onboardLI &vis_ovcam &cam1>;
+};
+
+&vip2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin3a_pins>;
+	sensor0 = <&cam3>;
+};
+
+&vip3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin5a_pins>;
+	sensor0 = <&cam4>;
+};
+
 &dpi1 {
 	lcd {
 		compatible = "ti,tfc_s9700";
@@ -352,6 +850,7 @@
 };
 
 &hdmi {
+	vdda_hdmi_dac-supply = <&ldo3_reg>;
 	tpd12s015: tpd12s015 {
 		compatible = "ti,tpd12s015";
 
@@ -364,6 +863,17 @@
 		hdmi-monitor {
 			compatible = "ti,hdmi_panel";
 		};
+	};
+};
+
+&dpi3 {
+	fpdlink {
+		compatible = "ti,lg101";
+		gpios = <&pcf_lcd3 0 0>; /* pcf8575@21 P0, SEL_GPMC_AD_VID_S0 */
+		data-lines = <24>;
+
+		serializer = <&lvds_fpd>;
+		dserializer = <&lvds_fpd1>;
 	};
 };
 

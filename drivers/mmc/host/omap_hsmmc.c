@@ -258,8 +258,10 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	 * With DT, never turn OFF the regulator. This is because
 	 * the pbias cell programming support is still missing when
 	 * booting with Device tree
+	 * To support slots which are not affected by the above missing
+	 * functionally, power down if MMC_CAP_POWER_OFF_CARD is set.
 	 */
-	if (dev->of_node && !vdd)
+	if (dev->of_node && !vdd && !(host->mmc->caps & MMC_CAP_POWER_OFF_CARD))
 		return 0;
 
 	if (mmc_slot(host).before_set_reg)
@@ -1743,6 +1745,12 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	else if (bus_width == 8)
 		pdata->slots[0].caps |= MMC_CAP_8_BIT_DATA;
 
+	if (of_find_property(np, "cap-power-off-card", NULL))
+		pdata->slots[0].caps |= MMC_CAP_POWER_OFF_CARD;
+
+	if (of_find_property(np, "keep-power-in-suspend", NULL))
+		pdata->slots[0].pm_caps |= MMC_PM_KEEP_POWER;
+
 	if (of_find_property(np, "ti,needs-special-reset", NULL))
 		pdata->slots[0].features |= HSMMC_HAS_UPDATED_RESET;
 
@@ -1888,6 +1896,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
 		     MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
+
+	mmc->caps |= MMC_CAP_1_8V_DDR;
 
 	mmc->caps |= mmc_slot(host).caps;
 	if (mmc->caps & MMC_CAP_8_BIT_DATA)

@@ -322,7 +322,7 @@ static void dss_dump_regs(struct seq_file *s)
 #undef DUMPREG
 }
 
-static void dss_select_dispc_clk_source(enum omap_dss_clk_source clk_src)
+void dss_select_dispc_clk_source(enum omap_dss_clk_source clk_src)
 {
 	struct platform_device *dsidev;
 	int b;
@@ -1003,12 +1003,17 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 	if (r)
 		goto err_setup_clocks;
 
-	pm_runtime_enable(&pdev->dev);
+#ifdef CONFIG_DISPLAY_SKIP_INIT
+	if (!omapdss_skipinit()) {
+#endif
+		pm_runtime_enable(&pdev->dev);
 
-	r = dss_runtime_get();
-	if (r)
-		goto err_runtime_get;
-
+		r = dss_runtime_get();
+		if (r)
+			goto err_runtime_get;
+#ifdef CONFIG_DISPLAY_SKIP_INIT
+	}
+#endif
 	dss.dss_clk_rate = clk_get_rate(dss.dss_clk);
 
 	/* Select DPLL */

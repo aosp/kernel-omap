@@ -26,187 +26,182 @@
 #include "vpdma.h"
 #include "vpdma_priv.h"
 
-#define VPDMA_FIRMWARE	"vpdma-1b8.bin"
+#define VPDMA_FIRMWARE	"vpdma-1b8.fw"
 
-struct vpdma_data_format vpdma_yuv_fmts[] = {
+const struct vpdma_data_format vpdma_yuv_fmts[] = {
 	[VPDMA_DATA_FMT_Y444] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_Y444,
 		.depth		= 8,
 	},
 	[VPDMA_DATA_FMT_Y422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_Y422,
 		.depth		= 8,
 	},
 	[VPDMA_DATA_FMT_Y420] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_Y420,
 		.depth		= 8,
 	},
 	[VPDMA_DATA_FMT_C444] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_C444,
 		.depth		= 8,
 	},
 	[VPDMA_DATA_FMT_C422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_C422,
 		.depth		= 8,
 	},
 	[VPDMA_DATA_FMT_C420] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_C420,
 		.depth		= 4,
 	},
 	[VPDMA_DATA_FMT_YC422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_YC422,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_YC444] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_YC444,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_CY422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
 		.data_type	= DATA_TYPE_CY422,
 		.depth		= 16,
 	},
 };
+EXPORT_SYMBOL(vpdma_yuv_fmts);
 
-struct vpdma_data_format vpdma_rgb_fmts[] = {
+const struct vpdma_data_format vpdma_rgb_fmts[] = {
 	[VPDMA_DATA_FMT_RGB565] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGB16_565,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ARGB16_1555] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ARGB_1555,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ARGB16] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ARGB_4444,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_RGBA16_5551] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGBA_5551,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_RGBA16] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGBA_4444,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ARGB24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ARGB24_6666,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_RGB24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGB24_888,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_ARGB32] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ARGB32_8888,
 		.depth		= 32,
 	},
 	[VPDMA_DATA_FMT_RGBA24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGBA24_6666,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_RGBA32] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_RGBA32_8888,
 		.depth		= 32,
 	},
 	[VPDMA_DATA_FMT_BGR565] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGR16_565,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ABGR16_1555] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ABGR_1555,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ABGR16] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ABGR_4444,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_BGRA16_5551] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGRA_5551,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_BGRA16] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGRA_4444,
 		.depth		= 16,
 	},
 	[VPDMA_DATA_FMT_ABGR24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ABGR24_6666,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_BGR24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGR24_888,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_ABGR32] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_ABGR32_8888,
 		.depth		= 32,
 	},
 	[VPDMA_DATA_FMT_BGRA24] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGRA24_6666,
 		.depth		= 24,
 	},
 	[VPDMA_DATA_FMT_BGRA32] = {
+		.type		= VPDMA_DATA_FMT_TYPE_RGB,
 		.data_type	= DATA_TYPE_BGRA32_8888,
 		.depth		= 32,
 	},
 };
+EXPORT_SYMBOL(vpdma_rgb_fmts);
 
-struct vpdma_data_format vpdma_misc_fmts[] = {
+const struct vpdma_data_format vpdma_misc_fmts[] = {
 	[VPDMA_DATA_FMT_MV] = {
+		.type		= VPDMA_DATA_FMT_TYPE_MISC,
 		.data_type	= DATA_TYPE_MV,
 		.depth		= 4,
 	},
 };
+EXPORT_SYMBOL(vpdma_misc_fmts);
 
-struct vpdma_channel_info {
-	int num;		/* VPDMA channel number */
-	int cstat_offset;	/* client CSTAT register offset */
-};
-
-static struct vpdma_channel_info chan_info[] = {
-	[VPE_CHAN_LUMA1_IN] = {
-		.num		= VPE_CHAN_NUM_LUMA1_IN,
-		.cstat_offset	= VPDMA_DEI_LUMA1_CSTAT,
-	},
-	[VPE_CHAN_CHROMA1_IN] = {
-		.num		= VPE_CHAN_NUM_CHROMA1_IN,
-		.cstat_offset	= VPDMA_DEI_CHROMA1_CSTAT,
-	},
-	[VPE_CHAN_LUMA2_IN] = {
-		.num		= VPE_CHAN_NUM_LUMA2_IN,
-		.cstat_offset	= VPDMA_DEI_LUMA2_CSTAT,
-	},
-	[VPE_CHAN_CHROMA2_IN] = {
-		.num		= VPE_CHAN_NUM_CHROMA2_IN,
-		.cstat_offset	= VPDMA_DEI_CHROMA2_CSTAT,
-	},
-	[VPE_CHAN_LUMA3_IN] = {
-		.num		= VPE_CHAN_NUM_LUMA3_IN,
-		.cstat_offset	= VPDMA_DEI_LUMA3_CSTAT,
-	},
-	[VPE_CHAN_CHROMA3_IN] = {
-		.num		= VPE_CHAN_NUM_CHROMA3_IN,
-		.cstat_offset	= VPDMA_DEI_CHROMA3_CSTAT,
-	},
-	[VPE_CHAN_MV_IN] = {
-		.num		= VPE_CHAN_NUM_MV_IN,
-		.cstat_offset	= VPDMA_DEI_MV_IN_CSTAT,
-	},
-	[VPE_CHAN_MV_OUT] = {
-		.num		= VPE_CHAN_NUM_MV_OUT,
-		.cstat_offset	= VPDMA_DEI_MV_OUT_CSTAT,
-	},
-	[VPE_CHAN_LUMA_OUT] = {
-		.num		= VPE_CHAN_NUM_LUMA_OUT,
-		.cstat_offset	= VPDMA_VIP_UP_Y_CSTAT,
-	},
-	[VPE_CHAN_CHROMA_OUT] = {
-		.num		= VPE_CHAN_NUM_CHROMA_OUT,
-		.cstat_offset	= VPDMA_VIP_UP_UV_CSTAT,
-	},
-	[VPE_CHAN_RGB_OUT] = {
-		.num		= VPE_CHAN_NUM_RGB_OUT,
-		.cstat_offset	= VPDMA_VIP_UP_Y_CSTAT,
-	},
+static int cstat_offset[256] = {
+	[VPE_CHAN_NUM_LUMA1_IN] = VPDMA_DEI_LUMA1_CSTAT,
+	[VPE_CHAN_NUM_CHROMA1_IN] = VPDMA_DEI_CHROMA1_CSTAT,
+	[VPE_CHAN_NUM_LUMA2_IN] = VPDMA_DEI_LUMA2_CSTAT,
+	[VPE_CHAN_NUM_CHROMA2_IN] = VPDMA_DEI_CHROMA2_CSTAT,
+	[VPE_CHAN_NUM_LUMA3_IN] = VPDMA_DEI_LUMA3_CSTAT,
+	[VPE_CHAN_NUM_CHROMA3_IN] = VPDMA_DEI_CHROMA3_CSTAT,
+	[VPE_CHAN_NUM_MV_IN] = VPDMA_DEI_MV_IN_CSTAT,
+	[VPE_CHAN_NUM_MV_OUT] = VPDMA_DEI_MV_OUT_CSTAT,
+	[VPE_CHAN_NUM_LUMA_OUT] = VPDMA_VIP_UP_Y_CSTAT,
+	[VPE_CHAN_NUM_CHROMA_OUT] = VPDMA_VIP_UP_UV_CSTAT,
+	[VPE_CHAN_NUM_RGB_OUT] = VPDMA_VIP_UP_Y_CSTAT,
 };
 
 static u32 read_reg(struct vpdma_data *vpdma, int offset)
@@ -300,6 +295,7 @@ void vpdma_dump_regs(struct vpdma_data *vpdma)
 	DUMPREG(VIP_UP_UV_CSTAT);
 	DUMPREG(VPI_CTL_CSTAT);
 }
+EXPORT_SYMBOL(vpdma_dump_regs);
 
 /*
  * Allocate a DMA buffer
@@ -319,6 +315,7 @@ int vpdma_buf_alloc(struct vpdma_buf *buf, size_t size)
 
 	return 0;
 }
+EXPORT_SYMBOL(vpdma_buf_alloc);
 
 void vpdma_buf_free(struct vpdma_buf *buf)
 {
@@ -330,6 +327,7 @@ void vpdma_buf_free(struct vpdma_buf *buf)
 	buf->addr = NULL;
 	buf->size = 0;
 }
+EXPORT_SYMBOL(vpdma_buf_free);
 
 /*
  * map a DMA buffer, enabling DMA access
@@ -349,6 +347,7 @@ void vpdma_buf_map(struct vpdma_data *vpdma, struct vpdma_buf *buf)
 	buf->mapped = 1;
 	WARN_ON(dma_mapping_error(dev, buf->dma_addr));
 }
+EXPORT_SYMBOL(vpdma_buf_map);
 
 /*
  * unmap a DMA buffer, disabling DMA access and
@@ -368,6 +367,7 @@ void vpdma_buf_unmap(struct vpdma_data *vpdma, struct vpdma_buf *buf)
 
 	buf->mapped = 0;
 }
+EXPORT_SYMBOL(vpdma_buf_unmap);
 
 /*
  * create a descriptor list, the user of this list will append configuration,
@@ -392,6 +392,7 @@ int vpdma_create_desc_list(struct vpdma_desc_list *list, size_t size, int type)
 
 	return 0;
 }
+EXPORT_SYMBOL(vpdma_create_desc_list);
 
 /*
  * once a descriptor list is parsed by VPDMA, we reset the list by emptying it,
@@ -401,6 +402,7 @@ void vpdma_reset_desc_list(struct vpdma_desc_list *list)
 {
 	list->next = list->buf.addr;
 }
+EXPORT_SYMBOL(vpdma_reset_desc_list);
 
 /*
  * free the buffer allocated fot the VPDMA descriptor list, this should be
@@ -412,13 +414,15 @@ void vpdma_free_desc_list(struct vpdma_desc_list *list)
 
 	list->next = NULL;
 }
+EXPORT_SYMBOL(vpdma_free_desc_list);
 
-static int vpdma_list_busy(struct vpdma_data *vpdma, int list_num)
+int vpdma_list_busy(struct vpdma_data *vpdma, int list_num)
 {
 	u32 sync_reg = read_reg(vpdma, VPDMA_LIST_STAT_SYNC);
 
 	return (sync_reg >> (list_num + 16)) & 0x01;
 }
+EXPORT_SYMBOL(vpdma_list_busy);
 
 /*
  * submit a list of DMA descriptors to the VPE VPDMA, do not wait for completion
@@ -436,7 +440,7 @@ int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
 	list_size = (list->next - list->buf.addr) >> 4;
 
 	write_reg(vpdma, VPDMA_LIST_ADDR, (u32) list->buf.dma_addr);
-	wmb();
+
 	write_reg(vpdma, VPDMA_LIST_ATTR,
 			(list_num << VPDMA_LIST_NUM_SHFT) |
 			(list->type << VPDMA_LIST_TYPE_SHFT) |
@@ -444,7 +448,21 @@ int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
 
 	return 0;
 }
+EXPORT_SYMBOL(vpdma_submit_descs);
 
+void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num)
+{
+	u32 val = 0;
+
+	if (vip_num == 1) {
+		insert_field(&val, 1919, VPDMA_MAX_SIZE_WIDTH_MASK, VPDMA_MAX_SIZE_WIDTH_SHFT);
+		insert_field(&val, 1079, VPDMA_MAX_SIZE_HEIGHT_MASK, VPDMA_MAX_SIZE_HEIGHT_SHFT);
+		write_reg(vpdma, VPDMA_MAX_SIZE1, val);
+	}
+}
+EXPORT_SYMBOL(vpdma_vip_set_max_size);
+
+#ifdef VPDMA_DEBUG
 static void dump_cfd(struct vpdma_cfd *cfd)
 {
 	int class;
@@ -469,6 +487,7 @@ static void dump_cfd(struct vpdma_cfd *cfd)
 		cfd_get_direct(cfd), class, cfd_get_dest(cfd),
 		cfd_get_payload_len(cfd));
 }
+#endif
 
 /*
  * append a configuration descriptor to the given descriptor list, where the
@@ -494,8 +513,11 @@ void vpdma_add_cfd_block(struct vpdma_desc_list *list, int client,
 
 	list->next = cfd + 1;
 
+#ifdef VPDMA_DEBUG
 	dump_cfd(cfd);
+#endif
 }
+EXPORT_SYMBOL(vpdma_add_cfd_block);
 
 /*
  * append a configuration descriptor to the given descriptor list, where the
@@ -522,14 +544,18 @@ void vpdma_add_cfd_adb(struct vpdma_desc_list *list, int client,
 
 	list->next = cfd + 1;
 
+#ifdef VPDMA_DEBUG
 	dump_cfd(cfd);
+#endif
 };
+EXPORT_SYMBOL(vpdma_add_cfd_adb);
 
 /*
  * control descriptor format change based on what type of control descriptor it
  * is, we only use 'sync on channel' control descriptors for now, so assume it's
  * that
  */
+#ifdef VPDMA_DEBUG
 static void dump_ctd(struct vpdma_ctd *ctd)
 {
 	pr_debug("control descriptor\n");
@@ -537,6 +563,7 @@ static void dump_ctd(struct vpdma_ctd *ctd)
 	pr_debug("word3: pkt_type = %d, source = %d, ctl_type = %d\n",
 		ctd_get_pkt_type(ctd), ctd_get_source(ctd), ctd_get_ctl(ctd));
 }
+#endif
 
 /*
  * append a 'sync on channel' type control descriptor to the given descriptor
@@ -544,7 +571,7 @@ static void dump_ctd(struct vpdma_ctd *ctd)
  * on the specified channel
  */
 void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list,
-		enum vpdma_channel chan)
+		 int channel)
 {
 	struct vpdma_ctd *ctd;
 
@@ -554,14 +581,17 @@ void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list,
 	ctd_set_w0(ctd, 0);
 	ctd_set_w1(ctd, 0);
 	ctd_set_w2(ctd, 0);
-	ctd_set_type_source_ctl(ctd, chan_info[chan].num,
-		CTD_TYPE_SYNC_ON_CHANNEL);
+	ctd_set_type_source_ctl(ctd, channel, CTD_TYPE_SYNC_ON_CHANNEL);
 
 	list->next = ctd + 1;
 
+#ifdef VPDMA_DEBUG
 	dump_ctd(ctd);
+#endif
 }
+EXPORT_SYMBOL(vpdma_add_sync_on_channel_ctd);
 
+#ifdef VPDMA_DEBUG
 static void dump_dtd(struct vpdma_dtd *dtd)
 {
 	int dir, chan;
@@ -608,29 +638,29 @@ static void dump_dtd(struct vpdma_dtd *dtd)
 	pr_debug("word6: client specfic attr0 = 0x%08x\n", dtd->client_attr0);
 	pr_debug("word7: client specfic attr1 = 0x%08x\n", dtd->client_attr1);
 }
+#endif
 
 /*
  * append an outbound data transfer descriptor to the given descriptor list,
  * this sets up a 'client to memory' VPDMA transfer for the given VPDMA channel
  */
-void vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		enum vpdma_channel chan, u32 flags)
+int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		int channel, u32 flags)
 {
 	int priority = 0;
 	int field = 0;
 	int notify = 1;
-	int channel, next_chan;
+	int next_chan = channel;
 	int depth = fmt->depth;
 	int stride;
 	struct vpdma_dtd *dtd;
 
-	channel = next_chan = chan_info[chan].num;
-
-	if (fmt->data_type == DATA_TYPE_C420)
+	if (fmt->type == VPDMA_DATA_FMT_TYPE_YUV &&
+			fmt->data_type == DATA_TYPE_C420)
 		depth = 8;
 
-	stride = (depth * c_rect->width) >> 3;
+	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
 	dma_addr += (c_rect->left * depth) >> 3;
 
 	dtd = list->next;
@@ -654,10 +684,14 @@ void vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
 	dtd_set_client_attr0(dtd, 0);
 	dtd_set_client_attr1(dtd, 0);
 
+#ifdef VPDMA_DEBUG
+	dump_dtd(dtd);
+#endif
 	list->next = dtd + 1;
 
-	dump_dtd(dtd);
+	return 0;
 }
+EXPORT_SYMBOL(vpdma_add_out_dtd);
 
 /*
  * append an inbound data transfer descriptor to the given descriptor list,
@@ -665,26 +699,25 @@ void vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
  */
 void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 		int frame_height, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		enum vpdma_channel chan, int field, u32 flags)
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		int channel, int field, u32 flags)
 {
 	int priority = 0;
 	int notify = 1;
 	int depth = fmt->depth;
-	int channel, next_chan;
+	int next_chan = channel;
 	int stride;
 	int height = c_rect->height;
 	struct vpdma_dtd *dtd;
 
-	channel = next_chan = chan_info[chan].num;
-
-	if (fmt->data_type == DATA_TYPE_C420) {
+	if (fmt->type == VPDMA_DATA_FMT_TYPE_YUV &&
+			fmt->data_type == DATA_TYPE_C420) {
 		height >>= 1;
 		frame_height >>= 1;
 		depth = 8;
 	}
 
-	stride = (depth * c_rect->width) >> 3;
+	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
 	dma_addr += (c_rect->left * depth) >> 3;
 
 	dtd = list->next;
@@ -708,10 +741,13 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 	dtd_set_client_attr0(dtd, 0);
 	dtd_set_client_attr1(dtd, 0);
 
-	list->next = dtd + 1;
-
+#ifdef VPDMA_DEBUG
 	dump_dtd(dtd);
+#endif
+
+	list->next = dtd + 1;
 }
+EXPORT_SYMBOL(vpdma_add_in_dtd);
 
 /* set or clear the mask for list complete interrupt */
 void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int list_num,
@@ -726,6 +762,7 @@ void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int list_num,
 		val &= ~(1 << (list_num * 2));
 	write_reg(vpdma, VPDMA_INT_LIST0_MASK, val);
 }
+EXPORT_SYMBOL(vpdma_enable_list_complete_irq);
 
 /* clear previosuly occured list intterupts in the LIST_STAT register */
 void vpdma_clear_list_stat(struct vpdma_data *vpdma)
@@ -733,6 +770,7 @@ void vpdma_clear_list_stat(struct vpdma_data *vpdma)
 	write_reg(vpdma, VPDMA_INT_LIST0_STAT,
 		read_reg(vpdma, VPDMA_INT_LIST0_STAT));
 }
+EXPORT_SYMBOL(vpdma_clear_list_stat);
 
 /*
  * configures the output mode of the line buffer for the given client, the
@@ -740,41 +778,42 @@ void vpdma_clear_list_stat(struct vpdma_data *vpdma)
  * passed to the client as is
  */
 void vpdma_set_line_mode(struct vpdma_data *vpdma, int line_mode,
-		enum vpdma_channel chan)
+		int channel)
 {
 	int client_cstat;
 
-	if (chan >= ARRAY_SIZE(chan_info)) {
+	if (channel >= ARRAY_SIZE(cstat_offset)) {
 		dev_err(&vpdma->pdev->dev, "invalid VPDMA channel\n");
 		return;
 	}
 
-	client_cstat = chan_info[chan].cstat_offset;
+	client_cstat = cstat_offset[channel];
 
 	insert_field_reg(vpdma, client_cstat, line_mode,
 		VPDMA_CSTAT_LINE_MODE_MASK, VPDMA_CSTAT_LINE_MODE_SHIFT);
 }
+EXPORT_SYMBOL(vpdma_set_line_mode);
 
 /*
  * configures the event which should trigger VPDMA transfer for the given
  * client
  */
 void vpdma_set_frame_start_event(struct vpdma_data *vpdma,
-		enum vpdma_frame_start_event fs_event,
-		enum vpdma_channel chan)
+		enum vpdma_frame_start_event fs_event, int channel)
 {
 	int client_cstat;
 
-	if (chan >= ARRAY_SIZE(chan_info)) {
+	if (channel >= ARRAY_SIZE(cstat_offset)) {
 		dev_err(&vpdma->pdev->dev, "invalid VPDMA channel\n");
 		return;
 	}
 
-	client_cstat = chan_info[chan].cstat_offset;
+	client_cstat = cstat_offset[channel];
 
 	insert_field_reg(vpdma, client_cstat, fs_event,
 		VPDMA_CSTAT_FRAME_START_MASK, VPDMA_CSTAT_FRAME_START_SHIFT);
 }
+EXPORT_SYMBOL(vpdma_set_frame_start_event);
 
 static void vpdma_firmware_cb(const struct firmware *f, void *context)
 {
@@ -891,4 +930,6 @@ int vpdma_init(struct platform_device *pdev, struct vpdma_data **pvpdma)
 
 	return 0;
 }
+EXPORT_SYMBOL(vpdma_init);
+
 MODULE_FIRMWARE(VPDMA_FIRMWARE);

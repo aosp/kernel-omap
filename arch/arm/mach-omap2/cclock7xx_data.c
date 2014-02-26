@@ -43,6 +43,17 @@
 #define DRA7_DPLL_ABE_DEFFREQ			180633600
 #define DRA7_DPLL_GMAC_DEFFREQ			1000000000
 #define DRA7_DPLL_USB_DEFFREQ			960000000
+#define DRA7_DPLL_DSP_DEFFREQ			600000000
+#define DRA7_DPLL_DSP_GFCLK_NOMFREQ		600000000
+#define DRA7_DPLL_EVE_GCLK_NOMFREQ		400000000
+
+#ifdef CONFIG_IVA_HIGH_OPP
+#define DRA7_DPLL_IVA_DEFFREQ				1064000000
+#define DRA7_IVA_GCLK_NOMFREQ				532000000
+#else
+#define DRA7_DPLL_IVA_DEFFREQ				1165000000
+#define DRA7_IVA_GCLK_NOMFREQ				388333333
+#endif
 
 /* Root clocks */
 
@@ -1586,8 +1597,8 @@ DEFINE_CLK_MUX(mcasp2_ahclkr_mux, mcasp1_ahclkr_mux_parents, NULL, 0x0,
 	       DRA7XX_CLKSEL_AHCLKR_WIDTH, 0x0, NULL);
 
 DEFINE_CLK_MUX(mcasp2_ahclkx_mux, mcasp1_ahclkr_mux_parents, NULL, 0x0,
-	       DRA7XX_CM_L4PER2_MCASP2_CLKCTRL, DRA7XX_CLKSEL_AHCLKR_SHIFT,
-	       DRA7XX_CLKSEL_AHCLKR_WIDTH, 0x0, NULL);
+	       DRA7XX_CM_L4PER2_MCASP2_CLKCTRL, DRA7XX_CLKSEL_AHCLKX_SHIFT,
+	       DRA7XX_CLKSEL_AHCLKX_WIDTH, 0x0, NULL);
 
 DEFINE_CLK_MUX(mcasp2_aux_gfclk_mux, mcasp1_aux_gfclk_mux_parents, NULL, 0x0,
 	       DRA7XX_CM_L4PER2_MCASP2_CLKCTRL, DRA7XX_CLKSEL_AUX_CLK_SHIFT,
@@ -2122,6 +2133,7 @@ static const char *enable_init_clks[] = {
 
 static struct reparent_init_clks reparent_clks[] = {
 	{ .name = "abe_dpll_sys_clk_mux", .parent = "sys_clkin2" },
+	{ .name = "ipu1_gfclk_mux", .parent = "dpll_core_h22x2_ck" },
 };
 
 static struct rate_init_clks rate_clks[] = {
@@ -2129,6 +2141,12 @@ static struct rate_init_clks rate_clks[] = {
 	{ .name = "dpll_abe_m2x2_ck", .rate =  DRA7_DPLL_ABE_DEFFREQ * 2 },
 	{ .name = "dpll_gmac_ck", .rate =  DRA7_DPLL_GMAC_DEFFREQ },
 	{ .name = "dpll_usb_ck", .rate =  DRA7_DPLL_USB_DEFFREQ },
+	{ .name = "dpll_dsp_ck", .rate = DRA7_DPLL_DSP_DEFFREQ },
+	{ .name = "dpll_dsp_m2_ck", .rate = DRA7_DPLL_DSP_GFCLK_NOMFREQ },
+	{ .name = "dpll_dsp_m3x2_ck", .rate = DRA7_DPLL_EVE_GCLK_NOMFREQ },
+	{ .name = "dpll_iva_ck", .rate = DRA7_DPLL_IVA_DEFFREQ },
+	{ .name = "dpll_iva_m2_ck", .rate = DRA7_IVA_GCLK_NOMFREQ },
+
 };
 
 int __init dra7xx_clk_init(void)

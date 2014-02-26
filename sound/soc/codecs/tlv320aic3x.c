@@ -77,6 +77,7 @@ struct aic3x_priv {
 	enum snd_soc_control_type control_type;
 	struct aic3x_setup_data *setup;
 	unsigned int sysclk;
+	unsigned int tdm_delay;
 	struct list_head list;
 	int master;
 	int gpio_reset;
@@ -140,6 +141,8 @@ static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = widget->codec;
+	struct snd_soc_card *card = codec->card;
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	unsigned int reg = mc->reg;
@@ -147,12 +150,13 @@ static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 	int max = mc->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
-	unsigned short val, val_mask;
-	int ret;
-	struct snd_soc_dapm_path *path;
-	int found = 0;
+	unsigned int val, val_mask;
+	int connect;
+	struct snd_soc_dapm_update update;
+	int wi;
 
 	val = (ucontrol->value.integer.value[0] & mask);
+	connect = !!val;
 
 	mask = 0xf;
 	if (val)
@@ -163,37 +167,30 @@ static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 	val_mask = mask << shift;
 	val = val << shift;
 
-	mutex_lock(&widget->codec->mutex);
+	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
 
 	if (snd_soc_test_bits(widget->codec, reg, val_mask, val)) {
-		/* find dapm widget path assoc with kcontrol */
-		list_for_each_entry(path, &widget->dapm->card->paths, list) {
-			if (path->kcontrol != kcontrol)
-				continue;
+		for (wi = 0; wi < wlist->num_widgets; wi++) {
+			widget = wlist->widgets[wi];
 
-			/* found, now check type */
-			found = 1;
-			if (val)
-				/* new connection */
-				path->connect = invert ? 0 : 1;
-			else
-				/* old connection must be powered down */
-				path->connect = invert ? 1 : 0;
+			widget->value = val;
 
-			dapm_mark_dirty(path->source, "tlv320aic3x source");
-			dapm_mark_dirty(path->sink, "tlv320aic3x sink");
+			update.kcontrol = kcontrol;
+			update.widget = widget;
+			update.reg = reg;
+			update.mask = val_mask;
+			update.val = val;
+			widget->dapm->update = &update;
 
-			break;
+			snd_soc_dapm_mixer_update_power_unlocked(widget,
+							kcontrol, connect);
+
+			widget->dapm->update = NULL;
 		}
-
-		if (found)
-			snd_soc_dapm_sync(widget->dapm);
 	}
 
-	ret = snd_soc_update_bits(widget->codec, reg, val_mask, val);
-
-	mutex_unlock(&widget->codec->mutex);
-	return ret;
+	mutex_unlock(&card->dapm_mutex);
+	return 0;
 }
 
 static const char *aic3x_left_dac_mux[] = { "DAC_L1", "DAC_L3", "DAC_L2" };
@@ -1097,10 +1094,43 @@ static int aic3x_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		return -EINVAL;
 	}
 
+	/* TDM requires DSP_B and bit delay to set active slots */
+	if ((fmt & SND_SOC_DAIFMT_FORMAT_MASK) == SND_SOC_DAIFMT_DSP_B)
+		delay = aic3x->tdm_delay;
+
 	/* set iface */
 	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLA, iface_areg);
 	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLB, iface_breg);
 	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLC, delay);
+
+	return 0;
+}
+
+static int aic3x_set_dai_tdm_slot(struct snd_soc_dai *codec_dai,
+				  unsigned int tx_mask, unsigned int rx_mask,
+				  int slots, int slot_width)
+{
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct aic3x_priv *aic3x = snd_soc_codec_get_drvdata(codec);
+	unsigned int lsb = __ffs(tx_mask);
+
+	if (tx_mask != rx_mask) {
+		dev_err(codec->dev, "tx and rx masks must be symmetric\n");
+		return -EINVAL;
+	}
+
+	/* TDM based on DSP mode requires slots to be adjacent */
+	if ((lsb + 1) != __fls(tx_mask)) {
+		dev_err(codec->dev, "Invalid mask, slots must be adjacent\n");
+		return -EINVAL;
+	}
+
+	aic3x->tdm_delay = lsb * slot_width;
+	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLC, aic3x->tdm_delay);
+
+	/* DOUT in high-impedance on inactive bit clocks */
+	snd_soc_update_bits(codec, AIC3X_ASD_INTF_CTRLA,
+			    DOUT_TRISTATE, DOUT_TRISTATE);
 
 	return 0;
 }
@@ -1242,6 +1272,7 @@ static const struct snd_soc_dai_ops aic3x_dai_ops = {
 	.digital_mute	= aic3x_mute,
 	.set_sysclk	= aic3x_set_dai_sysclk,
 	.set_fmt	= aic3x_set_dai_fmt,
+	.set_tdm_slot	= aic3x_set_dai_tdm_slot,
 };
 
 static struct snd_soc_dai_driver aic3x_dai = {
