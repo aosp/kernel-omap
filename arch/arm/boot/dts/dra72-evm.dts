@@ -19,7 +19,7 @@
 	};
 
 	chosen {
-		bootargs = "mem=64M@0x80000000 root=/dev/pmd rootwait rw console=ttyO0,3686400n8 earlyprintk init=/bin/sh";
+		bootargs = "console=ttyO0,3000000n8 root=/dev/ram rw initrd=0x84000000,10MB earlyprintk";
 	};
 };
 
