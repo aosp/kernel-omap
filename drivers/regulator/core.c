@@ -3981,7 +3981,7 @@ static int __init regulator_init_complete(void)
 	 * system has full constraints.
 	 */
 	if (of_have_populated_dt())
-		has_full_constraints = true;
+		//has_full_constraints = true;
 
 	mutex_lock(&regulator_list_mutex);
 
