@@ -92,7 +92,6 @@ struct tps65917_reg_init {
 enum tps65917_regulators {
 	/* SMPS regulators */
 	TPS65917_REG_SMPS1,
-	TPS65917_REG_SMPS12,
 	TPS65917_REG_SMPS2,
 	TPS65917_REG_SMPS3,
 	TPS65917_REG_SMPS4,
