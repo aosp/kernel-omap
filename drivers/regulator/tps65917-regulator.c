@@ -562,8 +562,8 @@ static int tps65917_extreg_init(struct tps65917 *tps65917, int id,
 }
 
 static struct of_regulator_match tps65917_matches[] = {
-	{ .name = "smps12", },
-	{ .name = "smps123", },
+	{ .name = "smps1", },
+	{ .name = "smps2", },
 	{ .name = "smps3", },
 	{ .name = "smps4", },
 	{ .name = "smps5", },
@@ -575,8 +575,6 @@ static struct of_regulator_match tps65917_matches[] = {
 	{ .name = "regen1", },
 	{ .name = "regen2", },
 	{ .name = "regen3", },
-	{ .name = "sysen1", },
-	{ .name = "sysen2", },
 };
 
 static void tps65917_dt_to_pdata(struct device *dev,
@@ -766,7 +764,7 @@ static int tps65917_regulators_probe(struct platform_device *pdev)
 		pmic->desc[id].supply_name = tps65917_regs_info[id].sname;
 		config.of_node = tps65917_matches[id].of_node;
 
-		rdev = devm_regulator_register(&pdev->dev, &pmic->desc[id],
+		rdev = regulator_register(&pmic->desc[id],
 					       &config);
 		if (IS_ERR(rdev)) {
 			dev_err(&pdev->dev,
@@ -839,7 +837,7 @@ static int tps65917_regulators_probe(struct platform_device *pdev)
 		pmic->desc[id].supply_name = tps65917_regs_info[id].sname;
 		config.of_node = tps65917_matches[id].of_node;
 
-		rdev = devm_regulator_register(&pdev->dev, &pmic->desc[id],
+		rdev = regulator_register(&pmic->desc[id],
 					       &config);
 		if (IS_ERR(rdev)) {
 			dev_err(&pdev->dev,
@@ -866,7 +864,6 @@ static int tps65917_regulators_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
 
 	return 0;
 }
