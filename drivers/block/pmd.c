@@ -34,8 +34,8 @@
 #include <asm/setup.h>
 #include <asm/pgtable.h>
 
-#define PMD_BASE 0x88000000
-#define PMD_SECTORS 0x20000
+#define PMD_BASE 0x84000000
+#define PMD_SECTORS 0x10000
 
 #define KERNEL_SECTOR_SIZE 512
 
