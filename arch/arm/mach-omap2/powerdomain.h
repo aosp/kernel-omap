@@ -119,7 +119,7 @@ enum pwrdm_func_state {
 #define PWRDM_MAX_CLKDMS	11
 
 /* XXX A completely arbitrary number. What is reasonable here? */
-#define PWRDM_TRANSITION_BAILOUT 100000
+#define PWRDM_TRANSITION_BAILOUT 1000
 
 struct clockdomain;
 struct powerdomain;
