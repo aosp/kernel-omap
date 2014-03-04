@@ -169,7 +169,7 @@ static int hdmi_wait_for_audio_stop(struct hdmi_ip_data *ip_data)
 		if (count++ > 100) {
 			pr_err("Audio is not turned off "
 			       "even after 10 seconds\n");
-			ti_hdmi_4xxx_wp_audio_disable(ip_data);
+//			ti_hdmi_4xxx_wp_audio_disable(ip_data);
 			return -ETIMEDOUT;
 		}
 	}
