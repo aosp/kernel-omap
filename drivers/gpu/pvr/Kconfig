@@ -1,0 +1,32 @@
+# PowerVR SGX driver configuration
+config PVR_SGX
+	tristate "PowerVR SGX support"
+	help
+	  Enable this option to build support for the PowerVR SGX 3D core.
+
+	  To compile this driver as a module, choose M here:
+	  this will generate two modules, called pvrsrvkm and omaplfb.
+
+choice
+	prompt "PowerVR SGX core"
+	depends on PVR_SGX
+	default PVR_SGXCORE_540
+
+config PVR_SGXCORE_540
+	bool "SGX 540"
+
+endchoice
+
+choice
+	prompt "PowerVR build type"
+	depends on PVR_SGX
+	default PVR_BUILD_RELEASE
+
+config PVR_BUILD_RELEASE
+	bool "Release"
+
+config PVR_BUILD_DEBUG
+	bool "Debug"
+
+endchoice
+
