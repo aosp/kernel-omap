@@ -1,0 +1,235 @@
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ * Based on "omap4.dtsi"
+ */
+
+/include/ "skeleton.dtsi"
+
+/ {
+	compatible = "ti,dra7xx";
+	interrupt-parent = <&gic>;
+
+	aliases {
+		serial0 = &uart1;
+	};
+
+	cpus {
+		cpu@0 {
+			compatible = "arm,cortex-a15";
+			operating-points = <
+				/* kHz    uV */
+				/* The OPP_HIGH Only for DVFS enabled Samples */
+				/* OPP_OD need to be enabled only for Refreshed poly fixed Samples */
+				/* dieID reg: 0x4AE0C20C FT_Rev bits[15:8] should be 5 or more to enable OPP_OD */
+			/*	1000000	1090000
+				1176000	1210000 */
+				1500000 1280000
+				>;
+				clocks = <&dpll_mpu_ck>;
+				clock-names = "cpu";
+				/*
+				 * Transition latency reference from omap5.
+				 * TBD: to be instrumented and use the actual
+				 * value at later point of time
+				 */
+				clock-latency = <300000>;
+			timer {
+				compatible = "arm,armv7-timer";
+				/*
+				 * PPI secure/nonsecure IRQ,
+				 * active low level-sensitive
+				 */
+				interrupts = <1 13 0x308>,
+					     <1 14 0x308>;
+				clock-frequency = <6144000>;
+			};
+		};
+		cpu@1 {
+			compatible = "#arm,cortex-a15";
+			timer {
+				compatible = "#arm,armv7-timer";
+				/*
+				 * PPI secure/nonsecure IRQ,
+				 * active low level-sensitive
+				 */
+				interrupts = <1 13 0x308>,
+					     <1 14 0x308>;
+				clock-frequency = <6144000>;
+			};
+		};
+	};
+
+	gic: interrupt-controller@48211000 {
+		compatible = "arm,cortex-a15-gic";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x48211000 0x1000>,
+		      <0x48212000 0x1000>;
+	};
+
+	/*
+	 * The soc node represents the soc top level view. It is uses for IPs
+	 * that are not memory mapped in the MPU view or for the MPU itself.
+	 */
+	soc {
+		compatible = "ti,omap-infra";
+		mpu {
+			compatible = "ti,omap5-mpu";
+			ti,hwmods = "mpu";
+		};
+	};
+
+	/*
+	 * XXX: Use a flat representation of the SOC interconnect.
+	 * The real OMAP interconnect network is quite complex.
+	 * Since that will not bring real advantage to represent that in DT for
+	 * the moment, just use a fake OCP bus entry to represent the whole bus
+	 * hierarchy.
+	 */
+	ocp {
+		compatible = "ti,omap4-l3-noc", "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		ti,hwmods = "l3_main_1", "l3_main_2";
+
+		counter32k: counter@4ae04000 {
+			compatible = "ti,omap-counter32k";
+			reg = <0x4ae04000 0x40>;
+			ti,hwmods = "counter_32k";
+		};
+
+		dra7_pmx_core: pinmux@4a003400 {
+			compatible = "pinctrl-single";
+			reg = <0x4a003400 0x0464>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x3fffffff>;
+		};
+
+		sys_clkin1: sys_clkin1 {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		dpll_mpu_ck: dpll_mpu_ck {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		dpll_gpu_m2_ck: dpll_gpu_m2_ck {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		dpll_core_h14x2_ck: dpll_core_h14x2_ck {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		dpll_per_h14x2_ck: dpll_per_h14x2_ck {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		gpu_core_gclk_mux: gpu_core_gclk_mux {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		gpu_hyd_gclk_mux: gpu_hyd_gclk_mux {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
+		};
+
+		uart1: serial@4806a000 {
+			compatible = "ti,omap4-uart";
+			reg = <0x4806a000 0x100>;
+			interrupts = <0 72 0x4>;
+			ti,hwmods = "uart1";
+			clock-frequency = <48000000>;
+			flags = <0x10000000>;
+		};
+
+		timer1: timer@4ae18000 {
+			compatible = "ti,omap2-timer";
+			reg = <0x4ae18000 0x80>;
+			interrupts = <0 37 0x4>;
+			ti,hwmods = "timer1";
+			ti,timer-alwon;
+		};
+
+		wdt2: wdt@4ae14000 {
+			compatible = "ti,omap4-wdt";
+			reg = <0x4ae14000 0x80>;
+			interrupts = <0 80 0x4>;
+			ti,hwmods = "wd_timer2";
+		};
+
+
+		dmm: dmm@4e000000 {
+			compatible = "ti,omap5-dmm";
+			reg = <0x4e000000 0x800>;
+			interrupts = <0 113 0x4>;
+			ti,hwmods = "dmm";
+		};
+
+		bandgap {
+			reg = <0x4a0021e0 0xc
+				0x4a00232c 0xc
+				0x4a002380 0x2c
+				0x4a0023C0 0x3c
+				0x4a002564 0x8
+				0x4a002574 0x50>;
+			compatible = "#ti,dra752-bandgap";
+			interrupts = <0 126 4>; /* talert */
+		};
+
+		avs_mpu: regulator-avs@0x4A003B18 {
+			compatible = "#ti,avsclass0";
+			reg = <0x4A003B18 0x20>;
+			efuse-settings = <1090000 8
+			1210000 12
+			1280000 16>;
+			voltage-tolerance = <1>;
+		};
+
+		abb_mpu: regulator-abb-mpu {
+			compatible = "#ti,abb-v2";
+			regulator-name = "abb_mpu";
+			#address-cells = <0>;
+			#size-cells = <0>;
+			clocks = <&sys_clkin1>;
+			ti,settling-time = <50>;
+			ti,clock-cycles = <16>;
+			avs-supply = <&avs_mpu>;
+
+			reg = <0x4AE07DDC 0x8>, <0x4AE06014 0x4>,
+			      <0x4a003B20 0x8>, <0x4AE0C158 0x4>;
+			reg-names = "base-address", "int-address",
+				    "efuse-address", "ldo-address";
+			ti,tranxdone-status-mask = <0x80>;
+			/* LDOVBBMPU_FBB_MUX_CTRL */
+			ti,ldovbb-override-mask = <0x400>;
+			/* LDOVBBMPU_FBB_VSET_OUT */
+			ti,ldovbb-vset-mask = <0x1F>;
+
+			/*
+			 * NOTE: only FBB mode used but actual vset will
+			 * determine final biasing
+			 */
+			ti,abb_info = <
+			/*uV		ABB	efuse	rbb_m fbb_m	vset_m*/
+/*			1090000		0	0x0	0 0x02000000 0x01F00000
+			1210000		0	0x4	0 0x02000000 0x01F00000 */
+			1280000		0	0x8	0 0x02000000 0x01F00000
+			>;
+			voltage-tolerance = <1>;
+		};
+	};
+};
