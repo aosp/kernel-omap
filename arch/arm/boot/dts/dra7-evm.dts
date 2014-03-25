@@ -740,6 +740,7 @@
 		reg = <0x38>;
 		deserializer = <&vis_des1>;
 		serializer = <&vis_ser1>;
+		status = "disabled";
 
 		port {
 			cam1: endpoint {
@@ -771,6 +772,7 @@
 		reg = <0x3a>;
 		deserializer = <&vis_des3>;
 		serializer = <&vis_ser3>;
+		status = "disabled";
 
 		port {
 			cam3: endpoint {
@@ -786,6 +788,7 @@
 		reg = <0x3b>;
 		deserializer = <&vis_des4>;
 		serializer = <&vis_ser4>;
+		status = "disabled";
 
 		port {
 			cam4: endpoint {
@@ -801,6 +804,7 @@
 		reg = <0x3c>;
 		deserializer = <&vis_des5>;
 		serializer = <&vis_ser5>;
+		status = "disabled";
 
 		port {
 			cam5: endpoint {
@@ -816,6 +820,7 @@
 		reg = <0x3d>;
 		deserializer = <&vis_des6>;
 		serializer = <&vis_ser6>;
+		status = "disabled";
 
 		port {
 			cam6: endpoint {
@@ -829,84 +834,100 @@
 	hdmirec: hdmirec@31 {
 		compatible = "no,one";
 		reg=<0x31>;
+		status = "disabled";
 	};
 
 	expander@27 {
 		compatible = "ti,i2cexp";
 		reg=<0x27>;
 		hdmirec = <&hdmirec>;
+		status = "disabled";
 	};
 
 	expander@21 {
 		compatible = "ti,i2cexp";
 		reg=<0x21>;
 		hdmirec = <&hdmirec>;
+		status = "disabled";
 	};
 
 	expander@25 {
 		compatible = "ti,i2cexp";
 		reg=<0x25>;
 		hdmirec = <&hdmirec>;
+		status = "disabled";
 	};
 
 	vis_des1: ds90ub914aq@60 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x60>;
+		status = "disabled";
 	};
 
 	vis_ser1: ds90ub913aq@74 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x74>;
+		status = "disabled";
 	};
 
 	vis_des2: ds90ub914aq@64 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x64>;
+		status = "disabled";
 	};
 
 	vis_ser2: ds90ub913aq@75 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x75>;
+		status = "disabled";
 	};
 
 	vis_des3: ds90ub914aq@68 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x68>;
+		status = "disabled";
 	};
 
 	vis_ser3: ds90ub913aq@76 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x76>;
+		status = "disabled";
 	};
 
 	vis_des4: ds90ub914aq@6c {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x6c>;
+		status = "disabled";
 	};
 
 	vis_ser4: ds90ub913aq@77 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x77>;
+		status = "disabled";
 	};
 
 	vis_des5: ds90ub914aq@61 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x61>;
+		status = "disabled";
 	};
 
 	vis_ser5: ds90ub913aq@78 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x78>;
+		status = "disabled";
 	};
 
 	vis_des6: ds90ub914aq@69 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x69>;
+		status = "disabled";
 	};
 
 	vis_ser6: ds90ub913aq@79 {
 		compatible = "ti,ds90ub913aq";
 		reg = <0x79>;
+		status = "disabled";
 	};
 
 	lvds_fpd: ds90uh925q@1b {
@@ -1009,30 +1030,36 @@
 &vip1 {
 	pinctrl-names = "default";
 	/*
-		Pinmux conflict between 1a:16-23 & 2a:0-8
-		Either use full 32bit of vin1a or use 16bit vin1a and 8bitvin2a
-		TO enable RGB camera, uncomment this
-		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
+		Pinmux conflict between vin1a:16-23 & vin2a:0-8
+		Either use full 24bit of vin1a or use 16bit vin1a and 8bitvin2a
+		TO enable cam2, uncomment this
+		pinctrl-0 = <&vin1a_pins &vin2a>;
 	*/
 	pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 };
 
 &vip2 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&vin3a_pins>;
+	/*
+		Pinmux conflict between vin3a and emac1
+		To enable vin3a, uncomment this
+		and remove Slave 2 section from cpsw_default_pins
+		pinctrl-0 = <&vin3a_pins>;
+	*/
 };
 
 &vip3 {
 	pinctrl-names = "default";
-	//pinctrl-0 = <&vin5a_pins &vin6a_pins>;
+	/*
+		Pinmux conflict between vin6a and atl,radio,mcasp3 pins
+		To enable vin6a, uncomment this and
+		remove atl_pins, mcasp3_pins, radio_pins from dra7_pmx_core
+		pinctrl-0 = <&vin5a_pins &vin6a_pins>;
+	*/
 	pinctrl-0 = <&vin5a_pins>;
 };
 
 &vin1a {
-	endpoint@4 {
-		slave-mode;
-		remote-endpoint = <&cam_fpdlink>;
-	};
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
@@ -1049,6 +1076,10 @@
                 slave-mode;
                 remote-endpoint = <&tvp5158>;
         };
+	endpoint@4 {
+		slave-mode;
+		remote-endpoint = <&cam_fpdlink>;
+	};
 };
 
 &vin2a {
