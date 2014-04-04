@@ -1,7 +1,7 @@
 /*
  * Remote processor machine-specific module for OMAP4+ SoCs
  *
- * Copyright (C) 2011-2013 Texas Instruments, Inc.
+ * Copyright (C) 2011-2014 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -37,6 +37,7 @@
  * @pdev: platform device handle
  * @cma_addr: Base CMA address to use for the platform device
  * @cma_size: CMA pool size to reserve starting from cma_addr
+ * @iommu: IOMMU archdata information
  *
  * This structure is mainly used to decide to create a platform
  * device or not. The enabled flag for each device is conditionally
@@ -47,6 +48,7 @@ struct omap_rproc_pdev_data {
 	phys_addr_t cma_addr;
 	unsigned long cma_size;
 	struct platform_device *pdev;
+	struct omap_iommu_arch_data *iommu;
 };
 
 /* forward declarations */
@@ -108,6 +110,72 @@ static struct omap_rproc_timers_info dsp2_timers[] = {
 	{ .name = "timer6", .id = 6, },
 };
 
+#define DRA7_RPROC_L2RAM_BASE_DSP			0x00800000
+#define DRA7_RPROC_L1PRAM_BASE_DSP			0x00e00000
+#define DRA7_RPROC_L1DRAM_BASE_DSP			0x00f00000
+
+#define DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP1	0x40800000
+#define DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP1  0x40e00000
+#define DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP1  0x40f00000
+#define DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP2   0x41000000
+#define DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP2  0x41600000
+#define DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP2  0x41700000
+#define DRA7_RPROC_L2RAM_SIZE_DSP1			0x00040000
+#define DRA7_RPROC_L1PRAM_SIZE_DSP1			0x00008000
+#define DRA7_RPROC_L1DRAM_SIZE_DSP1			0x00008000
+#define DRA7_RPROC_L2RAM_SIZE_DSP2			0x00040000
+#define DRA7_RPROC_L1PRAM_SIZE_DSP2			0x00008000
+#define DRA7_RPROC_L1DRAM_SIZE_DSP2			0x00008000
+
+/*
+ * The following "carveouts" are handled in the arch-specific remoteproc
+ * driver code, e.g., drivers/remoteproc/omap_remoteproc.c.
+ *
+ * They are not "carveouts" in the true remoteproc sense, in that they
+ * don't get allocated from CMA (no allocation done at all).  They just
+ * get ioremap_nocache()ed so the remoteproc loader can write to them.
+ */
+static struct rproc_mem_entry dsp1_carveouts[] = {
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP1,
+		.da			= DRA7_RPROC_L2RAM_BASE_DSP,
+		.len		= DRA7_RPROC_L2RAM_SIZE_DSP1,
+		.priv		= (void *)1,
+	},
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP1,
+		.da			= DRA7_RPROC_L1PRAM_BASE_DSP,
+		.len		= DRA7_RPROC_L1PRAM_SIZE_DSP1,
+		.priv		= (void *)1,
+	},
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP1,
+		.da			= DRA7_RPROC_L1DRAM_BASE_DSP,
+		.len		= DRA7_RPROC_L1DRAM_SIZE_DSP1,
+		.priv		= (void *)1,
+	},
+};
+static struct rproc_mem_entry dsp2_carveouts[] = {
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP2,
+		.da			= DRA7_RPROC_L2RAM_BASE_DSP,
+		.len		= DRA7_RPROC_L2RAM_SIZE_DSP2,
+		.priv		= (void *)1,
+	},
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP2,
+		.da			= DRA7_RPROC_L1PRAM_BASE_DSP,
+		.len		= DRA7_RPROC_L1PRAM_SIZE_DSP2,
+		.priv		= (void *)1,
+	},
+	{
+		.dma		= DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP2,
+		.da			= DRA7_RPROC_L1DRAM_BASE_DSP,
+		.len		= DRA7_RPROC_L1DRAM_SIZE_DSP2,
+		.priv		= (void *)1,
+	},
+};
+
 /*
  * These data structures define platform-specific information
  * needed for each supported remote processor.
@@ -141,6 +209,8 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.timers		= dsp_timers,
 		.timers_cnt	= ARRAY_SIZE(dsp_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp1_boot_addr,
+		.carveouts	= dsp1_carveouts,
+		.carveouts_cnt	= ARRAY_SIZE(dsp1_carveouts),
 	},
 	{
 		.name		= "ipu2",
@@ -149,6 +219,9 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.oh_name	= "ipu2",
 		.timers		= ipu_timers,
 		.timers_cnt	= ARRAY_SIZE(ipu_timers),
+#ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU2
+		.late_attach	= 1,
+#endif
 	},
 	{
 		.name		= "dsp2",
@@ -158,6 +231,8 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.timers		= dsp2_timers,
 		.timers_cnt	= ARRAY_SIZE(dsp2_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp2_boot_addr,
+		.carveouts	= dsp2_carveouts,
+		.carveouts_cnt	= ARRAY_SIZE(dsp2_carveouts),
 	},
 	{
 		.name		= "ipu1",
@@ -166,24 +241,46 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.oh_name	= "ipu1",
 		.timers		= ipu1_timers,
 		.timers_cnt	= ARRAY_SIZE(ipu1_timers),
+#ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1
+		.late_attach	= 1,
+#endif
 	},
 };
 
 /*
  * These data structures define the necessary iommu binding information
- * for the respective processor. The listing order should match the
- * order of the platform device and data.
+ * needed for each supported processor.
  */
-static struct omap_iommu_arch_data omap4_rproc_iommu[] = {
-	{ .name = "mmu_dsp" },
-	{ .name = "mmu_ipu" },
+static struct omap_iommu_arch_data omap4_dsp_iommu[] = {
+	{ .name = "mmu_dsp", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data dra7_rproc_iommu[] = {
-	{ .name = "mmu0_dsp1" },
-	{ .name = "mmu_ipu2" },
-	{ .name = "mmu0_dsp2" },
-	{ .name = "mmu_ipu1" },
+static struct omap_iommu_arch_data omap4_ipu_iommu[] = {
+	{ .name = "mmu_ipu", },
+	{ .name = NULL, },
+};
+
+static struct omap_iommu_arch_data dra7_dsp1_iommu[] = {
+	{ .name = "mmu0_dsp1", },
+	{ .name = "mmu1_dsp1", },
+	{ .name = NULL, },
+};
+
+static struct omap_iommu_arch_data dra7_ipu2_iommu[] = {
+	{ .name = "mmu_ipu2", },
+	{ .name = NULL, },
+};
+
+static struct omap_iommu_arch_data dra7_dsp2_iommu[] = {
+	{ .name = "mmu0_dsp2", },
+	{ .name = "mmu1_dsp2", },
+	{ .name = NULL, },
+};
+
+static struct omap_iommu_arch_data dra7_ipu1_iommu[] = {
+	{ .name = "mmu_ipu1", },
+	{ .name = NULL, },
 };
 
 /*
@@ -224,6 +321,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = omap4_dsp_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -232,6 +330,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = omap4_ipu_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP4_RPROC_CMA_SIZE_IPU,
 	},
@@ -243,6 +342,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = omap4_dsp_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -251,6 +351,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = omap4_ipu_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP5_RPROC_CMA_SIZE_IPU,
 	},
@@ -262,6 +363,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = dra7_dsp1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_DSP1,
 	},
@@ -270,6 +372,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = dra7_ipu2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU2,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU2,
 	},
@@ -278,6 +381,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_dsp2,
+		.iommu = dra7_dsp2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP2,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -286,6 +390,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_ipu1,
+		.iommu = dra7_ipu1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU1,
 	},
@@ -325,6 +430,9 @@ static int omap_rproc_device_enable(struct platform_device *pdev)
 	int ret = -EINVAL;
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
 
+	if (pdata->late_attach)
+		goto dev_enable;
+
 	if (strstarts(pdata->name, "dsp")) {
 		ret = omap_device_deassert_hardreset(pdev, "dsp");
 		if (ret)
@@ -342,6 +450,7 @@ static int omap_rproc_device_enable(struct platform_device *pdev)
 		goto out;
 	}
 
+dev_enable:
 	ret = omap_device_enable(pdev);
 
 out:
@@ -433,7 +542,7 @@ static struct device_node *of_dev_timer_lookup(struct device_node *np,
  * initialization) or to just start a timer (during a resume operation).
  */
 static int omap_rproc_enable_timers(struct platform_device *pdev,
-				    bool configure)
+					bool configure)
 {
 	int i;
 	int ret = 0;
@@ -507,7 +616,7 @@ free_timers:
  * or to just stop a timer (during a suspend operation).
  */
 static int omap_rproc_disable_timers(struct platform_device *pdev,
-				     bool configure)
+					 bool configure)
 {
 	int i;
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
@@ -590,7 +699,6 @@ static int __init omap_rproc_init(void)
 	struct omap_device *od;
 	int i, ret = 0, oh_count;
 	struct omap_rproc_pdata *rproc_data = NULL;
-	struct omap_iommu_arch_data *rproc_iommu = NULL;
 	struct omap_rproc_pdev_data *rproc_pdev_data = NULL;
 	int rproc_size = 0;
 
@@ -598,17 +706,14 @@ static int __init omap_rproc_init(void)
 		rproc_pdev_data = omap4_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(omap4_rproc_pdev_data);
 		rproc_data = omap4_rproc_data;
-		rproc_iommu = omap4_rproc_iommu;
 	} else if (soc_is_omap54xx()) {
 		rproc_pdev_data = omap5_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(omap5_rproc_pdev_data);
 		rproc_data = omap4_rproc_data;
-		rproc_iommu = omap4_rproc_iommu;
 	} else if (soc_is_dra7xx()) {
 		rproc_pdev_data = dra7_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(dra7_rproc_pdev_data);
 		rproc_data = dra7_rproc_data;
-		rproc_iommu = dra7_rproc_iommu;
 	} else {
 		return 0;
 	}
@@ -653,7 +758,7 @@ static int __init omap_rproc_init(void)
 		}
 
 		ret = platform_device_add_data(pdev, &rproc_data[i],
-					       sizeof(struct omap_rproc_pdata));
+					   sizeof(struct omap_rproc_pdata));
 		if (ret) {
 			dev_err(&pdev->dev, "can't add pdata\n");
 			omap_device_delete(od);
@@ -661,7 +766,17 @@ static int __init omap_rproc_init(void)
 			continue;
 		}
 
-		pdev->dev.archdata.iommu = &rproc_iommu[i];
+		pdev->dev.archdata.iommu = rproc_pdev_data[i].iommu;
+
+		/*
+		 * Set custom dma ops whose .alloc doesn't zero memory.
+		 * This is necessary for code/data memory that was early
+		 * loaded, but may present a problem for vring buffers
+		 * that might expect to be zeroed (vrings themselves are
+		 * OK since they are specifically zero initialized).
+		 */
+		if (rproc_data[i].late_attach)
+			set_dma_ops(&pdev->dev, &arm_dma_m_ops);
 
 		ret = omap_device_register(pdev);
 		if (ret) {

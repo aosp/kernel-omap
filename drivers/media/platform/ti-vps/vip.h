@@ -9,6 +9,7 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-memops.h>
+#include <media/v4l2-of.h>
 
 #include "vpdma.h"
 #include "vpdma_priv.h"
@@ -30,11 +31,14 @@
 
 #define VIP_MAX_SUBDEV	5
 
+#define VIP_VPDMA_MAX_BUFFER_COUNT 15
+
 /* buffer for one video frame */
 struct vip_buffer {
 	/* common v4l buffer stuff */
 	struct vb2_buffer	vb;
 	struct list_head	list;
+        bool                    drop;
 };
 
 /*
@@ -55,17 +59,11 @@ struct vip_shared {
  * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
  */
 
-struct vip_subdev_info {
-	const char *name;
-	struct i2c_board_info board_info;
-};
-
 struct vip_config {
-	struct vip_subdev_info *subdev_info;
-	int subdev_count;
 	const char *card_name;
 	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
 	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
+	struct v4l2_of_endpoint endpoints[VIP_MAX_SUBDEV];
 	int asd_sizes;
 };
 
@@ -74,6 +72,7 @@ struct vip_dev {
 	struct v4l2_async_notifier notifier;
 	struct vip_config	*config;
 	struct v4l2_subdev	*sensor;
+	struct v4l2_of_endpoint *endpoint;
 	struct v4l2_device	v4l2_dev;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
@@ -86,6 +85,7 @@ struct vip_dev {
 	spinlock_t		lock; /* used in videobuf2 callback */
 
 	int			irq;
+	int			num_skip_irq;
 	void __iomem		*base;
 
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
@@ -150,24 +150,12 @@ struct vip_stream {
 	int                 open;
 };
 
-extern struct vip_dev *early_dev;
-extern struct vip_stream *early_stream;
-extern dma_addr_t dma_addr_global;
-extern dma_addr_t dma_addr_global_complete;
-extern void *mem_priv;
+extern dma_addr_t dma_addr_global_complete[VIP_VPDMA_MAX_BUFFER_COUNT];
 
-extern bool early_sensor_detect(void);
-extern int early_vip_open(void);
-extern int early_release(void);
-extern int early_reqbufs(struct v4l2_requestbuffers *p);
-extern int early_querybuf(struct v4l2_buffer *p);
-extern int early_qbuf(struct v4l2_buffer *p);
-extern int early_dqbuf(struct v4l2_buffer *p);
-extern int early_streamon(enum v4l2_buf_type i);
-extern int early_querycap(struct v4l2_capability *cap);
-extern int early_enum_fmt(struct v4l2_fmtdesc *f);
-extern int early_s_fmt(struct v4l2_format *f);
-extern int early_try_fmt(struct v4l2_format *f);
+extern int vip_open(struct file *file);
+extern int vip_release(struct file *file);
+extern int vip_s_fmt_vid_cap(struct file *file, void *priv,
+			     struct v4l2_format *f);
 
 /*
  * VIP Enumerations
@@ -235,6 +223,8 @@ enum sync_types {
 #define VIP_NO_STANDBY_MODE             1
 #define VIP_SMART_STANDBY_MODE          2
 #define VIP_SMART_STANDBY_WAKEUP_MODE   3
+
+#define VIP_INTC_INTX_OFFSET		0x0020
 
 #define VIP_INT0_STATUS0_RAW_SET	0x0020
 #define VIP_INT0_STATUS0_RAW		VIP_INT0_STATUS0_RAW_SET

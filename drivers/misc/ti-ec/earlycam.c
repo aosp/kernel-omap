@@ -53,9 +53,11 @@ static struct earlycam_device *earlycam_dev;
 static struct task_struct *main_thread;
 static struct omap_overlay_info info;
 static int once = 1;
+static int display_enabled;
+static int buffer_index;
 
 static int main_fn(void *);
-static int init_mmap(void);
+static int init_mmap(struct file *fp);
 static void earlycam_isr(void *arg, unsigned int irqstatus);
 
 int thread_init(void)
@@ -127,6 +129,7 @@ int display_disable(struct earlycam_setup_dispc_data data)
 		ovl->disable(ovl);
 	}
 
+	display_enabled = 0;
 	return 0;
 }
 
@@ -198,15 +201,14 @@ int display_queue(struct earlycam_setup_dispc_data data)
 #endif
 
 	/* Re-try for vid pipe if unavailable */
-	if (once) {
+	if (!display_enabled) {
 		retry = 50;
 		while (ovl->is_enabled(ovl) && (retry-- > 0))
 			msleep(20);
 
 		if (ovl->is_enabled(ovl))
 			return -1;
-
-		once = 0;
+		display_enabled = 1;
 
 		ovl->set_manager(ovl,
 			earlycam_dev->managers[data.ovls[0].cfg.mgr_ix]);
@@ -233,7 +235,7 @@ int display_queue(struct earlycam_setup_dispc_data data)
 	return ret;
 }
 
-int init_mmap()
+int init_mmap(struct file *fp)
 {
 	int i;
 	struct v4l2_requestbuffers req = {0};
@@ -241,7 +243,7 @@ int init_mmap()
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
 
-	if (-1 == early_reqbufs(&req)) {
+	if (-1 == vb2_ioctl_reqbufs(fp, (void *)VIDIOC_REQBUFS, &req)) {
 		pr_err("early_reqbufs failed");
 		return -1;
 	}
@@ -251,7 +253,8 @@ int init_mmap()
 		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory = V4L2_MEMORY_MMAP;
 		buf.index = i;
-		if (-1 == early_querybuf(&buf)) {
+		if (-1 == vb2_ioctl_querybuf(fp,
+			(void *)VIDIOC_QUERYBUF, &buf)) {
 			pr_err("early_querybuf failed");
 			return -1;
 		}
@@ -260,36 +263,58 @@ int init_mmap()
 	return 0;
 }
 
-int capture_image(int init)
+int capture_image(struct file *fp, int init)
 {
 	struct v4l2_buffer buf = {0};
 	int i;
+
+	struct v4l2_format fmt = {0};
+	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt.fmt.pix.width = 1280;
+	fmt.fmt.pix.height = 720;
+	fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_VYUY;
+	fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = V4L2_MEMORY_MMAP;
 	buf.index = 0;
 
-	for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
-		if (-1 == early_qbuf(&buf)) {
+	if (init) {
+		for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
+				if (-1 == vb2_ioctl_qbuf(fp,
+						(void *)VIDIOC_QBUF, &buf)) {
+					pr_err("early_qbuf failed");
+					return -1;
+				}
+				buf.index++;
+			}
+			buf.index = 0;
+
+		if (-1 == (vip_s_fmt_vid_cap(fp,
+			(void *)VIDIOC_S_FMT, &fmt))) {
+			pr_err("early vidioc_s_fmt failed");
+			return -1;
+		}
+
+		if (-1 == (vb2_ioctl_streamon(fp,
+			(void *)VIDIOC_STREAMON, buf.type))) {
+			pr_err("early_streamon failed");
+			return -1;
+		}
+		msleep(100);
+	} else {
+		buf.index = buffer_index;
+		if (-1 == vb2_ioctl_qbuf(fp, (void *)VIDIOC_QBUF, &buf)) {
 			pr_err("early_qbuf failed");
 			return -1;
 		}
-		buf.index++;
-	}
-	buf.index = 0;
-	if ((-1 == (early_streamon(buf.type) && init))) {
-		pr_err("early_streamon failed");
-		return -1;
 	}
 
-	for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
-		if (-1 == early_dqbuf(&buf)) {
-			pr_err("early_dqbuf failed");
-			return -1;
-		}
-		buf.index++;
+	while (-EAGAIN == vb2_ioctl_dqbuf(fp, (void *)VIDIOC_DQBUF, &buf)) {
+		pr_err("Waiting for buffers..");
+		msleep(100);
 	}
-
+	buffer_index = buf.index;
 	return 0;
 }
 
@@ -300,6 +325,19 @@ int main_fn(void *arg)
 	int ret;
 	int cam_init = 1;
 	int val;
+	struct inode in;
+	struct dentry dtr;
+	struct file fp;
+
+	/*
+	 * Creates a file pointer to the VIP video device
+	 * This is hardcoded to open up the first instance
+	 * of the VIP which should be registered as /dev/video1
+	 * since the VPE module will be registered as /dev/video0
+	 */
+	in.i_rdev = MKDEV(VIDEO_MAJOR, 1);
+	dtr.d_inode = &in;
+	fp.f_path.dentry = &dtr;
 
 	/* need base address for in-page offset */
 	struct earlycam_setup_dispc_data comp = {
@@ -319,14 +357,8 @@ int main_fn(void *arg)
 			.zorder = EARLYCAM_WINDOW_ZORDER,
 			.enabled = (u8) 1,
 		},
-		.ovls[0].ba = (u32) dma_addr_global_complete,
+		.ovls[0].ba = (u32) dma_addr_global_complete[buffer_index],
 	};
-
-	if (!early_sensor_detect()) {
-		pr_err("early_sensor_detect failed with error %d",
-			 ret);
-		return ret;
-	}
 
 	ret = display_init();
 	if (ret) {
@@ -334,17 +366,7 @@ int main_fn(void *arg)
 		return ret;
 	}
 
-	ret = early_vip_open();
-	if (ret) {
-		pr_err("early_vip_open failed with error %d", ret);
-		return ret;
-	}
-
-	ret = init_mmap();
-	if (ret) {
-		pr_err("init_mmap failed with error %d", ret);
-		return ret;
-	}
+	cam_init = 2;
 
 	while (1) {
 		while ((val =
@@ -358,8 +380,10 @@ int main_fn(void *arg)
 			  * frequently
 			  */
 			if (!once) {
-				display_disable(comp);
-				early_release();
+				if (display_enabled)
+					display_disable(comp);
+
+				vip_release(&fp);
 				/* Set a special code for init flag to signal
 				  * that the init apis have to be called again
 				  * after gpio release
@@ -377,14 +401,14 @@ int main_fn(void *arg)
 
 		/* So we got a gpio press, start by initializing camera first */
 		if (cam_init == 2) {
-			ret = early_vip_open();
+			ret = vip_open(&fp);
 			if (ret) {
 				pr_err("early_vip_open failed with error %d",
 					ret);
 				return ret;
 			}
 
-			ret = init_mmap();
+			ret = init_mmap(&fp);
 			if (ret) {
 				pr_err("init_mmap failed with error %d", ret);
 				return ret;
@@ -396,24 +420,25 @@ int main_fn(void *arg)
 			cam_init = 1;
 		}
 
-		ret = capture_image(cam_init);
+		ret = capture_image(&fp, cam_init);
 		if (ret) {
 			pr_err("capture_image failed with error %d", ret);
 			return ret;
 	    }
 		cam_init = 0;
 
-	    comp.ovls[0].ba = (u32) dma_addr_global_complete;
+	    comp.ovls[0].ba = (u32) dma_addr_global_complete[buffer_index];
 		if (comp.ovls[0].ba != 0) {
 			ret = display_queue(comp);
 			if (ret)
 				pr_err("display_queue failed with error %d",
 					   ret);
 		}
+		once = 0;
 		msleep(33);
 	}
 
-	ret = early_release();
+	ret = vip_release(&fp);
 	if (ret) {
 		pr_err("early_release failed with error %d", ret);
 		return ret;

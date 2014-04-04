@@ -1398,6 +1398,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
 struct security_operations {
 	char name[SECURITY_NAME_MAX + 1];
 
+	int (*binder_set_context_mgr) (struct task_struct *mgr);
+	int (*binder_transaction) (struct task_struct *from, struct task_struct *to);
+	int (*binder_transfer_binder) (struct task_struct *from, struct task_struct *to);
+	int (*binder_transfer_file) (struct task_struct *from, struct task_struct *to, struct file *file);
+
 	int (*ptrace_access_check) (struct task_struct *child, unsigned int mode);
 	int (*ptrace_traceme) (struct task_struct *parent);
 	int (*capget) (struct task_struct *target,
@@ -1436,7 +1441,7 @@ struct security_operations {
 			     struct path *new_path);
 	int (*sb_set_mnt_opts) (struct super_block *sb,
 				struct security_mnt_opts *opts);
-	void (*sb_clone_mnt_opts) (const struct super_block *oldsb,
+	int (*sb_clone_mnt_opts) (const struct super_block *oldsb,
 				   struct super_block *newsb);
 	int (*sb_parse_opts_str) (char *options, struct security_mnt_opts *opts);
 
@@ -1638,6 +1643,7 @@ struct security_operations {
 	int (*tun_dev_attach_queue) (void *security);
 	int (*tun_dev_attach) (struct sock *sk, void *security);
 	int (*tun_dev_open) (void *security);
+	void (*skb_owned_by) (struct sk_buff *skb, struct sock *sk);
 #endif	/* CONFIG_SECURITY_NETWORK */
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
@@ -1685,6 +1691,10 @@ extern void __init security_fixup_ops(struct security_operations *ops);
 
 
 /* Security operations */
+int security_binder_set_context_mgr(struct task_struct *mgr);
+int security_binder_transaction(struct task_struct *from, struct task_struct *to);
+int security_binder_transfer_binder(struct task_struct *from, struct task_struct *to);
+int security_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file);
 int security_ptrace_access_check(struct task_struct *child, unsigned int mode);
 int security_ptrace_traceme(struct task_struct *parent);
 int security_capget(struct task_struct *target,
@@ -1721,7 +1731,7 @@ int security_sb_mount(const char *dev_name, struct path *path,
 int security_sb_umount(struct vfsmount *mnt, int flags);
 int security_sb_pivotroot(struct path *old_path, struct path *new_path);
 int security_sb_set_mnt_opts(struct super_block *sb, struct security_mnt_opts *opts);
-void security_sb_clone_mnt_opts(const struct super_block *oldsb,
+int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 				struct super_block *newsb);
 int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts);
 
@@ -1860,6 +1870,26 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  */
 
 static inline int security_init(void)
+{
+	return 0;
+}
+
+static inline int security_binder_set_context_mgr(struct task_struct *mgr)
+{
+	return 0;
+}
+
+static inline int security_binder_transaction(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static inline int security_binder_transfer_binder(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static inline int security_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file)
 {
 	return 0;
 }
@@ -2011,9 +2041,11 @@ static inline int security_sb_set_mnt_opts(struct super_block *sb,
 	return 0;
 }
 
-static inline void security_sb_clone_mnt_opts(const struct super_block *oldsb,
+static inline int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 					      struct super_block *newsb)
-{ }
+{
+	return 0;
+}
 
 static inline int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts)
 {
@@ -2588,6 +2620,8 @@ int security_tun_dev_attach_queue(void *security);
 int security_tun_dev_attach(struct sock *sk, void *security);
 int security_tun_dev_open(void *security);
 
+void security_skb_owned_by(struct sk_buff *skb, struct sock *sk);
+
 #else	/* CONFIG_SECURITY_NETWORK */
 static inline int security_unix_stream_connect(struct sock *sock,
 					       struct sock *other,
@@ -2779,6 +2813,11 @@ static inline int security_tun_dev_open(void *security)
 {
 	return 0;
 }
+
+static inline void security_skb_owned_by(struct sk_buff *skb, struct sock *sk)
+{
+}
+
 #endif	/* CONFIG_SECURITY_NETWORK */
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
