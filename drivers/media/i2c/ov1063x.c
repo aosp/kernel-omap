@@ -108,10 +108,7 @@ struct ov1063x_priv {
 	int			ov_pwdn_gpio;
 };
 
-static int gpio_requested;
-
 static int ov1063x_init_sensor(struct i2c_client *client);
-static int ov1063x_request_gpios(struct i2c_client *client);
 
 static int ov1063x_set_gpios(struct i2c_client *client, int vin2_s0_val,
 	int cam_fpd_mux_s0_val, int mux1_sel0_val, int mux1_sel1_val,
@@ -165,8 +162,13 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		 */
 		/* {0x3003, 0x1B}, */ /* fps = 30fps. */
 		/* {0x3004, 0x03}, */
+#ifdef CONFIG_VIDEO_TI_LVDS
+		{0x3003, 0x20}, /* fps = 15fps. */
+		{0x3004, 0x3},
+#else
 		{0x3003, 0x28}, /* fps = 15fps. */
 		{0x3004, 0x31},
+#endif
 		{0x3005, 0x20},
 		{0x3006, 0x91},
 		{0x3600, 0x74},
@@ -215,8 +217,13 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		{0x380b, 0xd0},
 		{0x380c, 0x6},
 		{0x380d, 0xf6}, /* 1280x720 */
+#ifdef CONFIG_VIDEO_TI_LVDS
+		{0x380e, 0x3},
+		{0x380f, 0x80},
+#else
 		{0x380e, 0x2},
 		{0x380f, 0xec}, /* 1280x720 */
+#endif
 		{0x3811, 0x8},
 		{0x381f, 0xc},
 		{0x3621, 0x63},
@@ -400,7 +407,11 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		{0x5252, 0x12},
 		{0x5254, 0x18},
 		{0x5256, 0x1e},
+#ifdef CONFIG_VIDEO_TI_LVDS
+		{0x4605, 0x8},
+#else
 		{0x4605, 0x00}, /* 8-bit YUV mode. */
+#endif
 		{0x4606, 0x7},
 		{0x4607, 0x71},
 		{0x460a, 0x2},
@@ -440,7 +451,11 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		{0x4611, 0x1},
 		{0x4612, 0x0},
 		{0x4613, 0x1},
+#ifdef CONFIG_VIDEO_TI_LVDS
+		{0x4605, 0x8},
+#else
 		{0x4605, 0x00},
+#endif
 		{0x4608, 0x0},
 		{0x4609, 0x8},
 		{0x6804, 0x0},
@@ -697,7 +712,11 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		 * 0x6706[3:0] :: 8 = 24MHz
 		 * 0x6706[3:0] :: 9 = 27MHz
 		 */
+#ifdef CONFIG_VIDEO_TI_LVDS
 		{0x6706, 0x78},
+#else
+		{0x6706, 0x71},
+#endif
 		{0x6708, 0x5},
 		{0x3822, 0x50},
 		{0x6f06, 0x6f},
@@ -1338,6 +1357,9 @@ static int ov1063x_s_fmt(struct v4l2_subdev *sd,
 		return ret;
 	}
 
+        if (priv->sensor_connector == VIS_SERDES)
+            client->addr = 0x30;
+
 	ret = ov1063x_set_params(client, &mf->width, &mf->height,
 				    mf->code);
 	if (!ret)
@@ -1501,88 +1523,66 @@ static int ov1063x_set_gpios(struct i2c_client *client, int vin2_s0_val,
 	int mux2_sel0_val, int mux2_sel1_val, int ov_pwdn_val) {
 
 	struct ov1063x_priv *priv = to_ov1063x(client);
-	int ret = 0, X = -1;
+	int ret = 0, X = -1, idx = 0;
+	struct gpio gpios[10];
 
-	ret = ov1063x_request_gpios(client);
+	if (vin2_s0_val != X) {
+		gpios[idx].gpio	= priv->vin2_s0_gpio;
+		gpios[idx].flags = vin2_s0_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label	= "vin2_s0";
+		idx++;
+	}
+	if (cam_fpd_mux_s0_val != X) {
+		gpios[idx].gpio   =  priv->cam_fpd_mux_s0_gpio;
+		gpios[idx].flags  = cam_fpd_mux_s0_val == 1 ?
+			GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "cam_fpd_mux_s0";
+		idx++;
+	}
+	if (mux1_sel0_val != X) {
+		gpios[idx].gpio   = priv->mux1_sel0_gpio;
+		gpios[idx].flags  = mux1_sel0_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "mux1_sel0";
+		idx++;
+	}
+	if (mux1_sel1_val != X) {
+		gpios[idx].gpio   = priv->mux1_sel1_gpio;
+		gpios[idx].flags  = mux1_sel0_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "mux1_sel1";
+		idx++;
+	}
+	if (mux2_sel0_val != X) {
+		gpios[idx].gpio   = priv->mux2_sel0_gpio;
+		gpios[idx].flags  = mux2_sel0_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "mux2_sel0";
+		idx++;
+	}
+
+	if (mux2_sel1_val != X) {
+		gpios[idx].gpio   = priv->mux2_sel1_gpio;
+		gpios[idx].flags  = mux2_sel1_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "mux2_sel1";
+		idx++;
+	}
+
+	if (ov_pwdn_val != X) {
+		gpios[idx].gpio   = priv->ov_pwdn_gpio;
+		gpios[idx].flags  = ov_pwdn_val == 1 ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW;
+		gpios[idx].label  = "ov_pwdn";
+		idx++;
+	}
+
+	ret = gpio_request_array(gpios, idx);
 	if (ret)
 		return ret;
 
-	if (vin2_s0_val != X)
-		ret = gpio_direction_output(priv->vin2_s0_gpio,
-			vin2_s0_val);
-	if (ret)
-		return ret;
-
-	if (cam_fpd_mux_s0_val != X)
-		ret = gpio_direction_output(priv->cam_fpd_mux_s0_gpio,
-			cam_fpd_mux_s0_val);
-	if (ret)
-		return ret;
-
-	if (mux1_sel0_val != X)
-		ret = gpio_direction_output(priv->mux1_sel0_gpio,
-			mux1_sel0_val);
-	if (ret)
-		return ret;
-
-	if (mux1_sel1_val != X)
-		ret = gpio_direction_output(priv->mux1_sel1_gpio,
-			mux1_sel1_val);
-	if (ret)
-		return ret;
-
-	if (mux2_sel0_val != X)
-		ret = gpio_direction_output(priv->mux2_sel0_gpio,
-			mux2_sel0_val);
-	if (ret)
-		return ret;
-
-	if (mux2_sel1_val != X)
-		ret = gpio_direction_output(priv->mux2_sel1_gpio,
-			mux2_sel1_val);
-	if (ret)
-		return ret;
-
-	if (ov_pwdn_val != X)
-		ret = gpio_direction_output(priv->ov_pwdn_gpio,
-			ov_pwdn_val);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int ov1063x_request_gpios(struct i2c_client *client)
-
-{
-	struct ov1063x_priv *priv = to_ov1063x(client);
-	int r;
-
-	if (gpio_requested == 1)
-		return 0;
-
-	struct gpio gpios[] = {
-		{ priv->vin2_s0_gpio, GPIOF_OUT_INIT_LOW,
-			"vin2_s0" },
-		{ priv->cam_fpd_mux_s0_gpio, GPIOF_OUT_INIT_HIGH,
-			"cam_fpd_mux_s0" },
-		{ priv->mux1_sel0_gpio, GPIOF_OUT_INIT_HIGH,
-			"mux1_sel0" },
-		{ priv->mux1_sel1_gpio, GPIOF_OUT_INIT_LOW,
-			"mux1_sel1" },
-		{ priv->mux2_sel0_gpio, GPIOF_OUT_INIT_LOW,
-			"mux2_sel0" },
-		{ priv->mux2_sel1_gpio, GPIOF_OUT_INIT_HIGH,
-			"mux2_sel1" },
-		{ priv->ov_pwdn_gpio, GPIOF_OUT_INIT_LOW,
-			"ov_pwdn" },
-	};
-
-	r = gpio_request_array(gpios, ARRAY_SIZE(gpios));
-	if (r)
-		return r;
-	else
-		gpio_requested = 1;
+	gpio_free_array(gpios, idx);
 
 	return 0;
 }
@@ -1626,13 +1626,16 @@ static int ov1063x_init_sensor(struct i2c_client *client)
 
 	switch (priv->sensor_connector) {
 	case VIS_OVCAM:
-		ret = ov1063x_set_gpios(client, 0, 1, 1, 0, 0, 0, 1);
+		ret = ov1063x_set_gpios(client, X, 1, 1, 0, 0, 0, 1);
 	break;
 	case VIS_SERDES:
-		ret = ov1063x_set_gpios(client, 0, 1, X, X, 0, 1, 1);
+		if (client->addr == 0x39)
+			ret = ov1063x_set_gpios(client, 0, 1, X, X, X, X, 1);
+		else
+			ret = ov1063x_set_gpios(client, X, 1, X, X, 0, 1, 1);
 	break;
 	case VIS_LI:
-		ret = ov1063x_set_gpios(client, 0, 1, 0, 0, 1, 0, 1);
+		ret = ov1063x_set_gpios(client, X, 1, 0, 0, 1, 0, 1);
 	break;
 	case BASE_LI:
 		ret = ov1063x_set_gpios(client, X, 0, X, X, X, X, X);
@@ -1643,21 +1646,6 @@ static int ov1063x_init_sensor(struct i2c_client *client)
 	}
 
 	return ret;
-}
-
-static void ov1063x_uninit_sensor(struct i2c_client *client)
-{
-	struct ov1063x_priv *priv = to_ov1063x(client);
-
-	gpio_free(priv->vin2_s0_gpio);
-	gpio_free(priv->cam_fpd_mux_s0_gpio);
-	gpio_free(priv->mux1_sel0_gpio);
-	gpio_free(priv->mux1_sel1_gpio);
-	gpio_free(priv->mux2_sel0_gpio);
-	gpio_free(priv->mux2_sel1_gpio);
-	gpio_free(priv->ov_pwdn_gpio);
-
-	gpio_requested = 0;
 }
 
 static const struct of_device_id ov1063x_dt_id[];
@@ -1946,7 +1934,6 @@ static int ov1063x_remove(struct i2c_client *client)
 
 	v4l2_device_unregister_subdev(&priv->subdev);
 	v4l2_ctrl_handler_free(&priv->hdl);
-	ov1063x_uninit_sensor(client);
 
 	return 0;
 }

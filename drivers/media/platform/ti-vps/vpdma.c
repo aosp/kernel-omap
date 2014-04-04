@@ -427,10 +427,9 @@ EXPORT_SYMBOL(vpdma_list_busy);
 /*
  * submit a list of DMA descriptors to the VPE VPDMA, do not wait for completion
  */
-int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
+int vpdma_submit_descs(struct vpdma_data *vpdma,
+	struct vpdma_desc_list *list, int list_num)
 {
-	/* we always use the first list */
-	int list_num = 0;
 	int list_size;
 
 	if (vpdma_list_busy(vpdma, list_num))
@@ -449,6 +448,28 @@ int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
 	return 0;
 }
 EXPORT_SYMBOL(vpdma_submit_descs);
+
+void vpdma_update_dma_addr(struct vpdma_data *vpdma,
+		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop)
+{
+	struct vpdma_dtd *dtd = list->buf.addr;
+	unsigned int write_desc_addr;
+
+	vpdma_buf_unmap(vpdma, &list->buf);
+
+	dtd_set_start_addr(dtd, dma_addr);
+
+	if (drop) {
+		write_desc_addr = virt_to_phys(
+			(struct vpdma_dtd *)list->buf.dma_addr + 2);
+
+		dtd_set_desc_write_addr(dtd, write_desc_addr, 1, 1, 0);
+	} else
+		dtd_set_desc_write_addr(dtd, 0, 0, 0, 0);
+
+	vpdma_buf_map(vpdma, &list->buf);
+}
+EXPORT_SYMBOL(vpdma_update_dma_addr);
 
 void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num)
 {
@@ -643,8 +664,15 @@ static void dump_dtd(struct vpdma_dtd *dtd)
 /*
  * append an outbound data transfer descriptor to the given descriptor list,
  * this sets up a 'client to memory' VPDMA transfer for the given VPDMA channel
+ *
+ * @list: vpdma desc list to which we add this decriptor
+ * @width: width of the image in pixels in memory
+ * @fmt: vpdma data format of the buffer
+ * dma_addr: dma address as seen by VPDMA
+ * chan: VPDMA channel
+ * flags: VPDMA flags to configure some descriptor fileds
  */
-int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
+int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		int channel, u32 flags)
 {
@@ -660,8 +688,7 @@ int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
 			fmt->data_type == DATA_TYPE_C420)
 		depth = 8;
 
-	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
-	dma_addr += (c_rect->left * depth) >> 3;
+	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
 
 	dtd = list->next;
 	WARN_ON((void *)(dtd + 1) > (list->buf.addr + list->buf.size));
@@ -696,29 +723,47 @@ EXPORT_SYMBOL(vpdma_add_out_dtd);
 /*
  * append an inbound data transfer descriptor to the given descriptor list,
  * this sets up a 'memory to client' VPDMA transfer for the given VPDMA channel
+ *
+ * @list: vpdma desc list to which we add this decriptor
+ * @width: width of the image in pixels in memory(not the cropped width)
+ * @c_rect: crop params of input image
+ * @fmt: vpdma data format of the buffer
+ * dma_addr: dma address as seen by VPDMA
+ * chan: VPDMA channel
+ * field: top or bottom field info of the input image
+ * flags: VPDMA flags to configure some descriptor fileds
+ * frame_width/height: the complete width/height of the image presented to the
+ *			client (this makes sense when multiple channels are
+ *			connected to the same client, forming a larger frame)
+ * start_h, start_v: position where the given channel starts providing pixel
+ *			data to the client (makes sense when multiple channels
+ *			contribute to the client)
  */
-void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
-		int frame_height, struct v4l2_rect *c_rect,
+void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
+		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		int channel, int field, u32 flags)
+		int channel, int field, u32 flags, int frame_width,
+		int frame_height, int start_h, int start_v)
 {
 	int priority = 0;
 	int notify = 1;
 	int depth = fmt->depth;
 	int next_chan = channel;
+	struct v4l2_rect rect = *c_rect;
 	int stride;
-	int height = c_rect->height;
 	struct vpdma_dtd *dtd;
 
 	if (fmt->type == VPDMA_DATA_FMT_TYPE_YUV &&
 			fmt->data_type == DATA_TYPE_C420) {
-		height >>= 1;
-		frame_height >>= 1;
+		rect.height >>= 1;
+		rect.top >>= 1;
 		depth = 8;
 	}
 
-	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
-	dma_addr += (c_rect->left * depth) >> 3;
+	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+
+	dma_addr += rect.top * stride + (rect.left * depth >> 3);
+
 
 	dtd = list->next;
 	WARN_ON((void *)(dtd + 1) > (list->buf.addr + list->buf.size));
@@ -732,12 +777,12 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 				!!(flags & VPDMA_DATA_ODD_LINE_SKIP),
 				stride);
 
-	dtd_set_xfer_length_height(dtd, c_rect->width, height);
+	dtd_set_xfer_length_height(dtd, rect.width, rect.height);
 	dtd_set_start_addr(dtd, dma_addr);
 	dtd_set_pkt_ctl(dtd, !!(flags & VPDMA_DATA_MODE_TILED), DTD_DIR_IN,
 			channel, priority, next_chan);
 	dtd_set_frame_width_height(dtd, frame_width, frame_height);
-	dtd_set_start_h_v(dtd, c_rect->left, c_rect->top);
+	dtd_set_start_h_v(dtd, start_h, start_v);
 	dtd_set_client_attr0(dtd, 0);
 	dtd_set_client_attr1(dtd, 0);
 
@@ -750,27 +795,39 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 EXPORT_SYMBOL(vpdma_add_in_dtd);
 
 /* set or clear the mask for list complete interrupt */
-void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int list_num,
-		bool enable)
+void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int irq_num,
+		int list_num, bool enable)
 {
+	u32 reg_addr = VPDMA_INT_LIST0_MASK + VPDMA_INTX_OFFSET * irq_num;
 	u32 val;
 
-	val = read_reg(vpdma, VPDMA_INT_LIST0_MASK);
+	val = read_reg(vpdma, reg_addr);
 	if (enable)
 		val |= (1 << (list_num * 2));
 	else
 		val &= ~(1 << (list_num * 2));
-	write_reg(vpdma, VPDMA_INT_LIST0_MASK, val);
+	write_reg(vpdma, reg_addr, val);
 }
 EXPORT_SYMBOL(vpdma_enable_list_complete_irq);
 
 /* clear previosuly occured list intterupts in the LIST_STAT register */
-void vpdma_clear_list_stat(struct vpdma_data *vpdma)
+void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num)
 {
-	write_reg(vpdma, VPDMA_INT_LIST0_STAT,
-		read_reg(vpdma, VPDMA_INT_LIST0_STAT));
+	u32 reg_addr = VPDMA_INT_LIST0_STAT + VPDMA_INTX_OFFSET * irq_num;
+	write_reg(vpdma, reg_addr,
+		read_reg(vpdma, reg_addr));
 }
 EXPORT_SYMBOL(vpdma_clear_list_stat);
+
+void vpdma_set_bg_color(struct vpdma_data *vpdma,
+		struct vpdma_data_format *fmt, u32 color)
+{
+	if (fmt->type == VPDMA_DATA_FMT_TYPE_RGB)
+		write_reg(vpdma, VPDMA_BG_RGB, color);
+	else if (fmt->type == VPDMA_DATA_FMT_TYPE_YUV)
+		write_reg(vpdma, VPDMA_BG_YUV, color);
+}
+EXPORT_SYMBOL(vpdma_set_bg_color);
 
 /*
  * configures the output mode of the line buffer for the given client, the

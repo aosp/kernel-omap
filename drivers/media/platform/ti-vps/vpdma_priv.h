@@ -43,6 +43,8 @@
 #define VPDMA_INT_LIST0_STAT		0x88
 #define VPDMA_INT_LIST0_MASK		0x8c
 
+#define VPDMA_INTX_OFFSET		0x50
+
 #define VPDMA_PERFMON(i)		(0x200 + i * 4)
 
 /* VIP/VPE client registers */
@@ -126,6 +128,7 @@
 #define VIP1_CHAN_NUM_PORT_B_LUMA	104
 #define VIP1_CHAN_NUM_PORT_B_CHROMA	105
 #define VIP1_CHAN_NUM_PORT_A_RGB	106
+#define VIP1_CHAN_NUM_PORT_B_RGB	107
 
 /*
  * a VPDMA address data block payload for a configuration descriptor needs to
