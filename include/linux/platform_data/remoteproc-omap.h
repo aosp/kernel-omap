@@ -56,6 +56,8 @@ struct omap_rproc_pdata {
 	const struct rproc_ops *ops;
 	struct omap_rproc_timers_info *timers;
 	u32 timers_cnt;
+	struct rproc_mem_entry *carveouts;
+	u32 carveouts_cnt;
 	u32 late_attach;
 	struct rproc_mem_entry *carveouts;
 	u32 carveouts_cnt;

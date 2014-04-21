@@ -193,14 +193,14 @@
 		compatible = "ti,gpio-usb-id";
 		gpios = <&pcf_lcd3 1 0>;
 		interrupt_mode = <0>;
-		dr_mode = "peripheral";
+		dr_mode = "host";
 	};
 
 	extcon2: gpio_usbvid_extcon2 {
 		compatible = "ti,gpio-usb-id";
 		gpios = <&pcf_lcd3 2 0>;
 		interrupt_mode = <0>;
-		dr_mode = "host";
+		dr_mode = "otg";
 	};
 };
 
@@ -644,6 +644,24 @@
 		reg = <0x4a>;
 	};
 
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108: tlc59108@40 {
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+	};
+
+	tlv320aic3106: tlv320aic3106@18 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		adc-settle-ms = <40>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
 	tps65217: tps65217@58 {
 		compatible = "ti,tps65917";
 		reg = <0x58>;
@@ -900,6 +918,7 @@
 		reg = <0x39>;
 		deserializer = <&vis_des2>;
 		serializer = <&vis_ser2>;
+		status = "disabled";
 
 		port {
 			cam2: endpoint {
@@ -1089,11 +1108,11 @@
 };
 
 &usb1 {
-	dr_mode = "peripheral";
+	dr_mode = "host";
 };
 
 &usb2 {
-	dr_mode = "host";
+	dr_mode = "otg";
 };
 
 &omap_dwc31 {
