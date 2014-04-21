@@ -598,7 +598,6 @@
         pinctrl-0 = <&i2c1_pins>;
 	status = "okay";
 
-
 	pcf_lcd: pcf8575@20 {
 		compatible = "ti,pcf8575";
 		reg = <0x20>;
@@ -641,10 +640,14 @@
 		DRVDD-supply = <&vaudio_3v3>;
 	};
 
+	mXT244:mXT244@4a {
+		reg = <0x4a>;
+	};
+
 	tps65217: tps65217@58 {
 		compatible = "ti,tps65917";
 		reg = <0x58>;
-		interrupts = <GIC_SPI 7 IRQ_TYPE_NONE>; /* IRQ_SYS_1N */
+		interrupts = <0 7 0x0>; /* IRQ_SYS_1N */
 		interrupt-parent = <&gic>;
                 interrupt-controller;
                 #interrupt-cells = <2>;
@@ -667,6 +670,7 @@
 						regulator-name = "smps2";
 						regulator-min-microvolt = < 850000>;
 						regulator-max-microvolt = <1030000>;
+						regulator-always-on;
 						regulator-boot-on;
 					};
 
@@ -675,6 +679,7 @@
 						regulator-name = "smps3";
 						regulator-min-microvolt = <850000>;
 						regulator-max-microvolt = <1250000>;
+						regulator-always-on;
 						regulator-boot-on;
 					};
 
@@ -692,14 +697,15 @@
 						regulator-name = "smps5";
 						regulator-min-microvolt = <1350000>;
 						regulator-max-microvolt = <1350000>;
+						regulator-always-on;
 						regulator-boot-on;
 					};
 
 				ldo1_reg: ldo1 {
 						/* LDO1_OUT --> SDIO */
 						regulator-name = "ldo1";
-						regulator-min-microvolt = <1800000>;
-						regulator-max-microvolt = <1800000>;
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
 						regulator-boot-on;
 					};
 
@@ -735,6 +741,22 @@
 						regulator-max-microvolt = <3300000>;
 						regulator-boot-on;
 					};
+				regen1_reg: regen1 {
+						regulator-name = "regen1";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+				regen2_reg: regen2 {
+						regulator-name = "regen2";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+				regen3_reg: regen3 {
+						regulator-name = "regen3";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
 
 				};
 			};
@@ -1109,23 +1131,23 @@
 };
 
 &avs_mpu {
-	avs-supply = <&smps123_reg>;
+	avs-supply = <&smps1_reg>;
 };
 
 &avs_core {
-	avs-supply = <&smps7_reg>;
+	avs-supply = <&smps2_reg>;
 };
 
 &avs_gpu {
-	avs-supply = <&smps6_reg>;
+	avs-supply = <&smps3_reg>;
 };
 
 &avs_dspeve {
-	avs-supply = <&smps45_reg>;
+	avs-supply = <&smps3_reg>;
 };
 
 &avs_iva {
-	avs-supply = <&smps8_reg>;
+	avs-supply = <&smps3_reg>;
 };
 
 &vip1 {
