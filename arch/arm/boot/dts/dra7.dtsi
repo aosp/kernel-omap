@@ -806,7 +806,7 @@
 			efuse-settings = <1090000 8
 			1210000 12
 			1280000 16>;
-			voltage-tolerance = <1>;
+			voltage-tolerance = <5>;
 		};
 
 		avs_dspeve: regulator-avs@0x4A0025D8 {

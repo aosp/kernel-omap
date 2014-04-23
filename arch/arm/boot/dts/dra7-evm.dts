@@ -739,6 +739,7 @@
 						regulator-name = "ldo4";
 						regulator-min-microvolt = <3300000>;
 						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
 						regulator-boot-on;
 					};
 				regen1_reg: regen1 {
@@ -1144,11 +1145,11 @@
 };
 
 &avs_dspeve {
-	avs-supply = <&smps3_reg>;
+	avs-supply = <&smps4_reg>;
 };
 
 &avs_iva {
-	avs-supply = <&smps3_reg>;
+	avs-supply = <&smps4_reg>;
 };
 
 &vip1 {

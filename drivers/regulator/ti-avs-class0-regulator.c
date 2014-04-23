@@ -211,6 +211,8 @@ static int tiavs_class0_probe(struct platform_device *pdev)
 	efuse_is_uV = of_property_read_bool(np,
 					    "ti,avsclass0-microvolt-values");
 
+	dev_err(&pdev->dev, "efuse_is_uV is %d\n", efuse_is_uV);
+
 	/* pick up Efuse based voltages */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -267,7 +269,7 @@ static int tiavs_class0_probe(struct platform_device *pdev)
 		if (max_uV < volt_table[i])
 			max_uV = volt_table[i];
 
-		dev_dbg(&pdev->dev, "[%d] efuse=0x%08x volt_table=%d vset=%d\n",
+		dev_err(&pdev->dev, "[%d] efuse=0x%08x volt_table=%d vset=%d\n",
 			i, efuse_offset, volt_table[i],
 			data->volt_set_table[i]);
 	}
@@ -281,7 +283,7 @@ static int tiavs_class0_probe(struct platform_device *pdev)
 			reg_v);
 		return reg_v;
 	}
-
+	dev_err(&pdev->dev, "current regulator voltage is %d\n", reg_v);
 	for (i = 0; i < desc->n_voltages; i++) {
 		u32 tol = DIV_ROUND_UP(data->volt_set_table[i] *
 				       data->voltage_tolerance, 100);
