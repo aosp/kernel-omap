@@ -36,6 +36,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/bitops.h>
+#include <linux/of.h>
 
 /*
  * Test if multicore OMAP support is needed

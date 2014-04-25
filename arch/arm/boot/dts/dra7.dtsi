@@ -927,7 +927,6 @@
 			ti,hwmods = "dss_core";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			vdda_video-supply = <&ldoln_reg>;
 
             dispc {
 				compatible = "ti,omap4-dispc";
