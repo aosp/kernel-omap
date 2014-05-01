@@ -747,9 +747,11 @@ static int __init omap2_init_devices(void)
 	 * please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+#ifndef CONFIG_DRA7X_ZEBU
 	omap_init_audio();
 	omap_init_camera();
 	gcxxx_init();
+#endif
 	/* If dtb is there, the devices will be created dynamically */
 	if (!of_have_populated_dt()) {
 		omap_init_control_usb();
@@ -762,10 +764,12 @@ static int __init omap2_init_devices(void)
 		omap_init_sham();
 		omap_init_aes();
 	}
+#ifndef CONFIG_DRA7X_ZEBU
 	omap_init_sti();
 	omap_init_rng();
 	omap_init_vout();
 	omap_init_ocp2scp();
+#endif
 
 	return 0;
 }
