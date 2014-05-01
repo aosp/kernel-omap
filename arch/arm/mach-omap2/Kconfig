@@ -478,6 +478,14 @@ config RADIO_CMEM_BUF
 	default y
 	help
 	  Use CMEM Allocator for large buffer sharing in Radio
+
+config DRA7X_ZEBU
+	bool "Enable DRA7X ZEBU"
+	depends on SOC_DRA7XX
+	default n
+	help
+	  Added for enabling ZEBU specific hacks
+
 endmenu
 
 endif
