@@ -15,7 +15,11 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x40000000>; /* 1024 MB */
+		reg = <0x80000000 0x8000000>; /* 128MB for Zebu */
+	};
+
+	chosen {
+		bootargs = "mem=64M@0x80000000 root=/dev/pmd rootwait rw console=ttyO0,3686400n8 earlyprintk init=/bin/sh";
 	};
 };
 
