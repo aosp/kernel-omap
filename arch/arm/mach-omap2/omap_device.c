@@ -348,7 +348,7 @@ static int omap_device_build_from_dt(struct platform_device *pdev)
 		of_property_read_string_index(node, "ti,hwmods", i, &oh_name);
 		oh = omap_hwmod_lookup(oh_name);
 		if (!oh) {
-			dev_err(&pdev->dev, "Cannot lookup hwmod '%s'\n",
+			dev_dbg(&pdev->dev, "Cannot lookup hwmod '%s'\n",
 				oh_name);
 			ret = -EINVAL;
 			goto odbfd_exit1;

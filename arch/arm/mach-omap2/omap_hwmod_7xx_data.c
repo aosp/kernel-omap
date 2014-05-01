@@ -6863,23 +6863,30 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_mpu__mpu_private,
 	&dra7xx_l3_main_2__ocp_wp_noc,
 	&dra7xx_l4_cfg__ocp_wp_noc,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l4_per2__atl,
 	&dra7xx_l3_main_1__bb2d,
+#endif
 	&dra7xx_l4_wkup__counter_32k,
 	&dra7xx_l4_wkup__ctrl_module_wkup,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l4_wkup__dcan1,
 	&dra7xx_l4_per2__dcan2,
 	&dra7xx_l4_per2__gmac,
 	&dra7xx_gmac__mdio,
+#endif
 	&dra7xx_l4_cfg__dma_system,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l3_main_1__dss,
 	&dra7xx_l3_main_1__dispc,
 	&dra7xx_dsp1__l3_main_1,
 	&dra7xx_dsp2__l3_main_1,
 	&dra7xx_l3_main_1__hdmi,
+#endif
 	&dra7xx_l4_per1__elm,
 	&dra7xx_emif_ocp_fw__emif1,
 	&dra7xx_mpu__emif1,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_emif_ocp_fw__emif2,
 	&dra7xx_mpu__emif2,
 	&dra7xx_l4_wkup__gpio1,
@@ -6892,12 +6899,15 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__gpio8,
 	&dra7xx_l3_main_1__gpmc,
 	&dra7xx_l3_main_1__gpu,
+#endif
 	&dra7xx_l4_per1__hdq1w,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l4_per1__i2c1,
 	&dra7xx_l4_per1__i2c2,
 	&dra7xx_l4_per1__i2c3,
 	&dra7xx_l4_per1__i2c4,
 	&dra7xx_l4_per1__i2c5,
+#endif
 	&dra7xx_ipu1__l3_main_1,
 	&dra7xx_ipu2__l3_main_1,
 	&dra7xx_l4_cfg__mailbox1,
@@ -6913,6 +6923,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__mailbox11,
 	&dra7xx_l4_per3__mailbox12,
 	&dra7xx_l4_per3__mailbox13,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l3_main_1__mcasp1,
 	&dra7xx_l4_per2__mcasp1,
 	&dra7xx_l3_main_1__mcasp2,
@@ -6930,6 +6941,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__mmc2,
 	&dra7xx_l4_per1__mmc3,
 	&dra7xx_l4_per1__mmc4,
+#endif
 	&dra7xx_l3_main_1__mmu0_dsp1,
 	&dra7xx_l3_main_1__mmu1_dsp1,
 	&dra7xx_l3_main_1__mmu0_dsp2,
@@ -6943,6 +6955,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__ocmc_rom,
 	&dra7xx_l4_cfg__ocp2scp1,
 	&dra7xx_l4_cfg__ocp2scp3,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l3_main_1__pruss1,
 	&dra7xx_l3_main_1__pruss2,
 	&dra7xx_l4_per2__pwmss1,
@@ -6951,6 +6964,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__qspi,
 	&dra7xx_l4_per3__rtcss,
 	&dra7xx_l4_cfg__sata,
+#endif
 	&dra7xx_l4_cfg__smartreflex_core,
 	&dra7xx_l4_cfg__smartreflex_dspeve,
 	&dra7xx_l4_cfg__smartreflex_gpu,
@@ -7000,6 +7014,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per2__uart8,
 	&dra7xx_l4_per2__uart9,
 	&dra7xx_l4_wkup__uart10,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l4_per3__usb_otg_ss1,
 	&dra7xx_l4_per3__usb_otg_ss2,
 	&dra7xx_l4_per3__usb_otg_ss3,
@@ -7012,6 +7027,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__vip2,
 	&dra7xx_l4_per3__vip3,
 	&dra7xx_l4_per3__vpe,
+#endif
 	&dra7xx_l4_wkup__wd_timer2,
 	NULL,
 };
