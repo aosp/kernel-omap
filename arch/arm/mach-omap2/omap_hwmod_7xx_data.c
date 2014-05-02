@@ -6896,6 +6896,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__gpio6,
 	&dra7xx_l4_per1__gpio7,
 	&dra7xx_l4_per1__gpio8,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l3_main_1__gpmc,
 	&dra7xx_l3_main_1__gpu,
 	&dra7xx_l4_per1__hdq1w,
