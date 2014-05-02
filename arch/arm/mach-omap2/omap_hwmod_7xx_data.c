@@ -6889,6 +6889,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 #ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_emif_ocp_fw__emif2,
 	&dra7xx_mpu__emif2,
+#endif
 	&dra7xx_l4_wkup__gpio1,
 	&dra7xx_l4_per1__gpio2,
 	&dra7xx_l4_per1__gpio3,
@@ -6897,17 +6898,16 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__gpio6,
 	&dra7xx_l4_per1__gpio7,
 	&dra7xx_l4_per1__gpio8,
+#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l3_main_1__gpmc,
 	&dra7xx_l3_main_1__gpu,
 #endif
 	&dra7xx_l4_per1__hdq1w,
-#ifndef CONFIG_DRA7X_ZEBU
 	&dra7xx_l4_per1__i2c1,
 	&dra7xx_l4_per1__i2c2,
 	&dra7xx_l4_per1__i2c3,
 	&dra7xx_l4_per1__i2c4,
 	&dra7xx_l4_per1__i2c5,
-#endif
 	&dra7xx_ipu1__l3_main_1,
 	&dra7xx_ipu2__l3_main_1,
 	&dra7xx_l4_cfg__mailbox1,

@@ -345,7 +345,6 @@
 			#ti,mbox-data-cells = <4>;
 			ti,mbox-names = "mbox-ipu1", "mbox-dsp1";
 			ti,mbox-data = <6 4 0 2>, <5 1 0 2>;
-			status = "disabled";
 		};
 
 		mailbox6: mailbox@48842000 {
@@ -358,7 +357,6 @@
 			#ti,mbox-data-cells = <4>;
 			ti,mbox-names = "mbox-ipu2", "mbox-dsp2";
 			ti,mbox-data = <6 4 0 2>, <5 1 0 2>;
-			status = "disabled";
 		};
 
 		mailbox7: mailbox@48844000 {
@@ -678,7 +676,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "i2c1";
-			status = "disabled";
 		};
 
 		i2c2: i2c@48072000 {
@@ -688,7 +685,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "i2c2";
-			status = "disabled";
 		};
 
 		i2c3: i2c@48060000 {
@@ -698,7 +694,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "i2c3";
-			status = "disabled";
 		};
 
 		i2c4: i2c@4807a000 {
@@ -708,7 +703,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "i2c4";
-			status = "disabled";
 		};
 
 		i2c5: i2c@4807c000 {
@@ -718,7 +712,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "i2c5";
-			status = "disabled";
 		};
 
 		mmc1: mmc@4809c000 {
