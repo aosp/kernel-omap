@@ -582,34 +582,11 @@
 
 };
 
-&gmac {
-	status="okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&cpsw_default_pins>;
-	dual_emac = <1>;
-};
-
-&davinci_mdio {
-	pinctrl-names = "default";
-	pinctrl-0 = <&davinci_mdio_default_pins>;
-};
-
-&cpsw_emac0 {
-	phy_id = <&davinci_mdio>, <2>;
-};
-
-&cpsw_emac1 {
-	phy_id = <&davinci_mdio>, <3>;
-};
 
 &i2c1 {
 	clock-frequency = <400000>;
         pinctrl-0 = <&i2c1_pins>;
 	status = "okay";
-
-	tps659038: tps659038@58 {
-		reg = <0x58>;
-	};
 
 	pcf_lcd: pcf8575@20 {
 		compatible = "ti,pcf8575";
@@ -643,6 +620,12 @@
 		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
 	};
 
+ 	ldc3001:ldc3001@18 {
+ 		reg = <0x18>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 1>;
+ 	};
+
 	tlv320aic3106: tlv320aic3106@18 {
 		compatible = "ti,tlv320aic3x";
 		reg = <0x18>;
@@ -653,12 +636,125 @@
 		DRVDD-supply = <&vaudio_3v3>;
 	};
 
-	mXT244:mXT244@4a {
-		reg = <0x4a>;
-	};
-};
+	tps65217: tps65217@58 {
+		compatible = "ti,tps65917";
+		reg = <0x58>;
+		interrupts = <0 7 0x0>; /* IRQ_SYS_1N */
+		interrupt-parent = <&gic>;
+                interrupt-controller;
+                #interrupt-cells = <2>;
 
-/include/ "tps659038.dtsi"
+		tps65917_pmic {
+			compatible = "ti,tps65917-pmic";
+
+			regulators {
+				smps1_reg: smps1 {
+					/* VDD_MPU */
+						regulator-name = "smps1";
+						regulator-min-microvolt = < 850000>;
+						regulator-max-microvolt = <1250000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				smps2_reg: smps2 {
+						/* VDD_CORE */
+						regulator-name = "smps2";
+						regulator-min-microvolt = < 850000>;
+						regulator-max-microvolt = <1030000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				smps3_reg: smps3 {
+						/* VDD_GPU_IVAHD_DSP - over VDD_SMPS3 */
+						regulator-name = "smps3";
+						regulator-min-microvolt = <850000>;
+						regulator-max-microvolt = <1250000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				smps4_reg: smps4 {
+						/* VDD_1V8 */
+						regulator-name = "smps4";
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				smps5_reg: smps5 {
+						/* VDD_DDR */
+						regulator-name = "smps5";
+						regulator-min-microvolt = <1350000>;
+						regulator-max-microvolt = <1350000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				ldo1_reg: ldo1 {
+						/* LDO1_OUT --> SDIO */
+						regulator-name = "ldo1";
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-boot-on;
+					};
+
+/* Spare				ldo2_reg: ldo2 {
+						regulator-name = "ldo2";
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-boot-on;
+					};
+*/
+
+				ldo3_reg: ldo3 {
+						/* VDDA_1V8_PHY */
+						regulator-name = "ldo3";
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-boot-on;
+					};
+
+				ldo5_reg: ldo5 {
+						/* VDDA_1V8_PLL */
+						regulator-name = "ldo5";
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+				ldo4_reg: ldo4 {
+						/* VDDA_3V_USB: VDDA_USBHS33 */
+						regulator-name = "ldo4";
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+				regen1_reg: regen1 {
+						regulator-name = "regen1";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+				regen2_reg: regen2 {
+						regulator-name = "regen2";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+				regen3_reg: regen3 {
+						regulator-name = "regen3";
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+
+				};
+			};
+		};
+};
 
 &i2c2 {
         pinctrl-names = "default";
@@ -1028,23 +1124,23 @@
 };
 
 &avs_mpu {
-	avs-supply = <&smps123_reg>;
+	avs-supply = <&smps1_reg>;
 };
 
 &avs_core {
-	avs-supply = <&smps7_reg>;
+	avs-supply = <&smps2_reg>;
 };
 
 &avs_gpu {
-	avs-supply = <&smps6_reg>;
+	avs-supply = <&smps3_reg>;
 };
 
 &avs_dspeve {
-	avs-supply = <&smps45_reg>;
+	avs-supply = <&smps4_reg>;
 };
 
 &avs_iva {
-	avs-supply = <&smps8_reg>;
+	avs-supply = <&smps4_reg>;
 };
 
 &vip1 {
@@ -1152,6 +1248,10 @@
 	};
 };
 
+&ldc3001 {
+	compatible = "lgphilips,ldc3001";
+};
+
 &dpi3 {
 	fpdlink {
 		compatible = "ti,lg101";
@@ -1163,59 +1263,7 @@
 	};
 };
 
-&mXT244 {
-	compatible = "atmel,mXT244";
-	interrupts = <0 119 0x4>;
 
-	atmel,config = <
-	/* MXT244_GEN_COMMAND(6) */
-	0x00 0x00 0x00 0x00 0x00 0x00
-	/* MXT244_GEN_POWER(7) */
-	0x20 0xff 0x32
-	/* MXT244_GEN_ACQUIRE(8) */
-	0x0a 0x00 0x05 0x00 0x00 0x00 0x09 0x23
-	/* MXT244_TOUCH_MULTI(9) */
-	0x00 0x00 0x00 0x13 0x0b 0x00 0x00 0x00 0x02 0x00
-	0x00 0x01 0x01 0x0e 0x0a 0x0a 0x0a 0x0a 0x00 0x00
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00
-	/* MXT244_TOUCH_KEYARRAY(15) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00
-	/* MXT244_COMMSCONFIG_T18(2) */
-	0x00 0x00
-	/* MXT244_SPT_GPIOPWM(19) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00 0x00 0x00 0x00 0x00 0x00
-	/* MXT244_PROCI_GRIPFACE(20) */
-	0x07 0x00 0x00 0x00 0x00 0x00 0x00 0x50 0x28 0x04
-	0x0f 0x0a
-	/* MXT244_PROCG_NOISE(22) */
-	0x05 0x00 0x00 0x00 0x00 0x00 0x00 0x03 0x23 0x00
-	0x00 0x05 0x0f 0x19 0x23 0x2d 0x03
-	/* MXT244_TOUCH_PROXIMITY(23) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00 0x00 0x00 0x00 0x00
-	/* MXT244_PROCI_ONETOUCH(24) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	/* MXT244_SPT_SELFTEST(25) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	0x00 0x00 0x00 0x00
-	/* MXT244_PROCI_TWOTOUCH(27) */
-	0x00 0x00 0x00 0x00 0x00 0x00 0x00
-	/* MXT244_SPT_CTECONFIG(28) */
-	0x00 0x00 0x02 0x08 0x10 0x00 >;
-
-	atmel,x_line = <18>;
-	atmel,y_line = <12>;
-	atmel,x_size = <800>;
-	atmel,y_size = <480>;
-	atmel,blen = <0x01>;
-	atmel,threshold = <30>;
-	atmel,voltage = <2800000>;
-	atmel,orient = <0x4>;
-};
 &qspi {
 	spi-max-frequency = <48000000>;
         m25p80@0 {
@@ -1228,6 +1276,6 @@
 };
 
 &dss {
-	vdda_video-supply = <&ldoln_reg>;
+	vdda_video-supply = <&ldo3_reg>;
 };
 
