@@ -43,6 +43,7 @@
 #define DRA7_DPLL_ABE_DEFFREQ			180633600
 #define DRA7_DPLL_GMAC_DEFFREQ			1000000000
 #define DRA7_DPLL_USB_DEFFREQ			960000000
+#define DRA7_L3INIT_480_GFCLK			480000000
 #define DRA7_DPLL_DSP_DEFFREQ			600000000
 #define DRA7_DPLL_DSP_GFCLK_NOMFREQ		600000000
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ		400000000
@@ -493,6 +494,9 @@ static struct dpll_data dpll_mpu_dd = {
 	.modes		= (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	.autoidle_reg	= DRA7XX_CM_AUTOIDLE_DPLL_MPU,
 	.idlest_reg	= DRA7XX_CM_IDLEST_DPLL_MPU,
+	.dcc_mask       = DRA7XX_DCC_EN_MASK,
+	/* rate bigger than 1.4 GHz will use DCC */
+	.dcc_rate       = 1400000000,
 	.mult_mask	= DRA7XX_DPLL_MULT_MASK,
 	.div1_mask	= DRA7XX_DPLL_DIV_MASK,
 	.enable_mask	= DRA7XX_DPLL_EN_MASK,
@@ -2141,6 +2145,7 @@ static struct rate_init_clks rate_clks[] = {
 	{ .name = "dpll_abe_m2x2_ck", .rate =  DRA7_DPLL_ABE_DEFFREQ * 2 },
 	{ .name = "dpll_gmac_ck", .rate =  DRA7_DPLL_GMAC_DEFFREQ },
 	{ .name = "dpll_usb_ck", .rate =  DRA7_DPLL_USB_DEFFREQ },
+	{ .name = "dpll_usb_m2_ck", .rate = DRA7_L3INIT_480_GFCLK},
 	{ .name = "dpll_dsp_ck", .rate = DRA7_DPLL_DSP_DEFFREQ },
 	{ .name = "dpll_dsp_m2_ck", .rate = DRA7_DPLL_DSP_GFCLK_NOMFREQ },
 	{ .name = "dpll_dsp_m3x2_ck", .rate = DRA7_DPLL_EVE_GCLK_NOMFREQ },
