@@ -38,6 +38,7 @@
 #include "i2c.h"
 #include "mmc.h"
 #include "wd_timer.h"
+#include "soc.h"
 
 /* Base offset for all DRA7XX interrupts external to MPUSS */
 #define DRA7XX_IRQ_GIC_START	32
@@ -6880,8 +6881,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__elm,
 	&dra7xx_emif_ocp_fw__emif1,
 	&dra7xx_mpu__emif1,
-	&dra7xx_emif_ocp_fw__emif2,
-	&dra7xx_mpu__emif2,
 	&dra7xx_l4_wkup__gpio1,
 	&dra7xx_l4_per1__gpio2,
 	&dra7xx_l4_per1__gpio3,
@@ -7009,15 +7008,34 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__vcp2,
 	&dra7xx_l4_per2__vcp2,
 	&dra7xx_l4_per3__vip1,
-	&dra7xx_l4_per3__vip2,
-	&dra7xx_l4_per3__vip3,
 	&dra7xx_l4_per3__vpe,
 	&dra7xx_l4_wkup__wd_timer2,
 	NULL,
 };
 
+static struct omap_hwmod_ocp_if *dra74x_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_emif_ocp_fw__emif2,
+	&dra7xx_mpu__emif2,
+	&dra7xx_l4_per3__vip2,
+	&dra7xx_l4_per3__vip3,
+	NULL,
+};
+
+static struct omap_hwmod_ocp_if *dra72x_hwmod_ocp_ifs[] __initdata = {
+	NULL,
+};
+
 int __init dra7xx_hwmod_init(void)
 {
+	int ret;
+
 	omap_hwmod_init();
-	return omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
+	ret = omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
+
+	if (!ret && soc_is_dra74x())
+		return omap_hwmod_register_links(dra74x_hwmod_ocp_ifs);
+	else if (!ret && soc_is_dra72x())
+		return omap_hwmod_register_links(dra72x_hwmod_ocp_ifs);
+
+	return ret;
 }
