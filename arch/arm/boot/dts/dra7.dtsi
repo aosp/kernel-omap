@@ -34,6 +34,8 @@
 		serial3 = &uart4;
 		serial4 = &uart5;
 		serial5 = &uart6;
+		ethernet0 = &cpsw_emac0;
+		ethernet1 = &cpsw_emac1;
 	};
 
 	timer {
@@ -713,6 +715,68 @@
 			>;
 		};
 
+		voltdm_mpu: voltdm@4a003b20 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a003b20 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+		};
+
+		voltdm_ivahd: voltdm@4a0025cc {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+			reg = <0x4a0025cc 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+		};
+
+		voltdm_dspeve: voltdm@4a0025e0 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+			reg = <0x4a0025e0 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+		};
+
+		voltdm_gpu: voltdm@4a003b08 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+			reg = <0x4a003b08 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			1210000 0x4
+			1280000 0x8
+			>;
+		};
+
+		voltdm_core: voltdm@4a0025f4 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0025f4 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			>;
+		};
+
 		mcspi1: spi@48098000 {
 			compatible = "ti,omap4-mcspi";
 			reg = <0x48098000 0x200>;
@@ -778,8 +842,11 @@
 
 		qspi: qspi@4b300000 {
 			compatible = "ti,dra7xxx-qspi";
-			reg = <0x4b300000 0x100>;
-			reg-names = "qspi_base";
+			reg = <0x4b300000 0x100>, <0x4a002558 0x4>,
+				<0x5c000000 0x3ffffff>;
+			reg-names = "qspi_base",
+				"qspi_ctrlmod",
+				"qspi_mmap";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "qspi";
@@ -998,6 +1065,62 @@
 			ti,irqs-reserved = <0 1 2 3 5 6 131 132>;
 			ti,irqs-skip = <10 133 139 140>;
 			ti,irqs-safe-map = <0>;
+		};
+
+		mac: ethernet@4a100000 {
+			compatible = "ti,cpsw";
+			ti,hwmods = "gmac";
+			cpdma_channels = <8>;
+			ale_entries = <1024>;
+			bd_ram_size = <0x2000>;
+			no_bd_ram = <0>;
+			rx_descs = <64>;
+			mac_control = <0x20>;
+			slaves = <2>;
+			active_slave = <0>;
+			cpts_clock_mult = <0x80000000>;
+			cpts_clock_shift = <29>;
+			reg = <0x48484000 0x1000
+			       0x48485200 0xE00>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/*
+			 * rx_thresh_pend
+			 * rx_pend
+			 * tx_pend
+			 * misc_pend
+			 */
+			interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
+			ranges;
+			status = "disabled";
+
+			davinci_mdio: mdio@48485000 {
+				compatible = "ti,davinci_mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				ti,hwmods = "davinci_mdio";
+				bus_freq = <1000000>;
+				reg = <0x48485000 0x100>;
+			};
+
+			cpsw_emac0: slave@48480200 {
+				/* Filled in by U-Boot */
+				mac-address = [ 00 00 00 00 00 00 ];
+			};
+
+			cpsw_emac1: slave@48480300 {
+				/* Filled in by U-Boot */
+				mac-address = [ 00 00 00 00 00 00 ];
+			};
+
+			phy_sel: cpsw-phy-sel@4a002554 {
+				compatible = "ti,dra7xx-cpsw-phy-sel";
+				reg= <0x4a002554 0x4>;
+				reg-names = "gmii-sel";
+			};
 		};
 	};
 };
