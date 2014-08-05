@@ -580,7 +580,6 @@ static struct omap_hwmod dra7xx_dsp1_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_DSP1_DSP1_CLKCTRL_OFFSET,
 			.rstctrl_offs = DRA7XX_RM_DSP1_RSTCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_DSP1_DSP1_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
@@ -598,7 +597,6 @@ static struct omap_hwmod dra7xx_dsp2_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_DSP2_DSP2_CLKCTRL_OFFSET,
 			.rstctrl_offs = DRA7XX_RM_DSP2_RSTCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_DSP2_DSP2_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
@@ -1458,7 +1456,6 @@ static struct omap_hwmod dra7xx_ipu1_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_IPU1_IPU1_CLKCTRL_OFFSET,
 			.rstctrl_offs = DRA7XX_RM_IPU1_RSTCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_IPU1_IPU1_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 #if defined(CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1) || \
@@ -1480,7 +1477,6 @@ static struct omap_hwmod dra7xx_ipu2_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_IPU2_IPU2_CLKCTRL_OFFSET,
 			.rstctrl_offs = DRA7XX_RM_IPU2_RSTCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_IPU2_IPU2_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 #ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU2
@@ -2118,8 +2114,8 @@ static struct omap_hwmod_irq_info dra7xx_mmc3_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info dra7xx_mmc3_sdma_reqs[] = {
-	{ .name = "77", .dma_req = 76 + DRA7XX_DMA_REQ_START },
-	{ .name = "78", .dma_req = 77 + DRA7XX_DMA_REQ_START },
+	{ .name = "tx", .dma_req = 76 + DRA7XX_DMA_REQ_START },
+	{ .name = "rx", .dma_req = 77 + DRA7XX_DMA_REQ_START },
 	{ .dma_req = -1 }
 };
 

@@ -202,6 +202,8 @@ struct tvp5158_priv {
 	const char			*sensor_name;
 	int				cam_fpd_mux_s0_gpio;
 	int				sel_tvp_fpd_s0;
+	int				vin2_s0_gpio;
+	int				vin2_s2_gpio;
 	enum				tvp5158_std current_std;
 	enum				tvp5158_signal_present signal_present;
 	const struct			tvp5158_std_info *std_list;
@@ -426,6 +428,27 @@ static int tvp5158_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
+static int tvp5158_enum_framesizes(struct v4l2_subdev *sd,
+			struct v4l2_frmsizeenum *f)
+{
+
+	/* For now, hard coded resolutions for TVP5158 NTSC decoder */
+	int cam_width[] =	{ 720,	640,};
+	int cam_height[] =	{ 240,	240,};
+
+	if (f->index >= 2)
+		return -EINVAL;
+
+	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	f->discrete.width = cam_width[f->index];
+	/* tvp5158 sensor outputs interlaced data, hence, in the timings
+	* we listed down the field height. In the framesize query we need
+	* to publish the frame height, so multiply the field height by 2 */
+	f->discrete.height = 2 * cam_height[f->index];
+
+	return 0;
+}
+
 static int tvp5158_get_gpios(struct device_node *node,
 			struct i2c_client *client)
 {
@@ -448,6 +471,22 @@ static int tvp5158_get_gpios(struct device_node *node,
 		return -EINVAL;
 	}
 
+	gpio = of_get_gpio(node, 2);
+	if (gpio_is_valid(gpio))
+		priv->vin2_s0_gpio = gpio;
+	else {
+		priv->vin2_s0_gpio = -1;
+		dev_err(&client->dev, "failed to parse VIN2_S0 gpio\n");
+	}
+
+	gpio = of_get_gpio(node, 3);
+	if (gpio_is_valid(gpio))
+		priv->vin2_s2_gpio = gpio;
+	else {
+		priv->vin2_s2_gpio = -1;
+		dev_err(&client->dev, "failed to parse VIN2_S2 gpio\n");
+	}
+
 	return 0;
 }
 
@@ -455,19 +494,42 @@ static int tvp5158_set_gpios(struct i2c_client *client)
 {
 
 	struct tvp5158_priv *priv = to_tvp5158(client);
-	struct gpio gpios[] = {
-		{ priv->sel_tvp_fpd_s0, GPIOF_OUT_INIT_LOW,
-			"tvp_fpd_mux_s0" },
-		{ priv->cam_fpd_mux_s0_gpio, GPIOF_OUT_INIT_HIGH,
-			"cam_fpd_mux_s0" },
-	};
-	int ret = -1;
+	struct gpio gpios[10];
+	int ret = -1, i = 0;
 
-	ret = gpio_request_array(gpios, ARRAY_SIZE(gpios));
+	if (gpio_is_valid(priv->sel_tvp_fpd_s0)) {
+		gpios[i].gpio = priv->sel_tvp_fpd_s0;
+		gpios[i].flags = GPIOF_OUT_INIT_LOW;
+		gpios[i].label = "tvp_fpd_mux_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->cam_fpd_mux_s0_gpio)) {
+		gpios[i].gpio = priv->cam_fpd_mux_s0_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_HIGH;
+		gpios[i].label = "cam_fpd_mux_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->vin2_s0_gpio)) {
+		gpios[i].gpio = priv->vin2_s0_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_LOW;
+		gpios[i].label = "vin2_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->vin2_s2_gpio)) {
+		gpios[i].gpio = priv->vin2_s2_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_HIGH;
+		gpios[i].label = "vin2_s2";
+		i++;
+	}
+
+	ret = gpio_request_array(gpios, i);
 	if (ret)
 		return ret;
 
-	gpio_free_array(gpios, ARRAY_SIZE(gpios));
+	gpio_free_array(gpios, i);
 
 	return 0;
 }
@@ -475,6 +537,7 @@ static int tvp5158_set_gpios(struct i2c_client *client)
 static struct v4l2_subdev_video_ops tvp5158_video_ops = {
 	.querystd	= tvp5158_querystd,
 	.enum_mbus_fmt	= tvp5158_enum_fmt,
+	.enum_framesizes = tvp5158_enum_framesizes,
 	.g_parm		= tvp5158_g_parm,
 	.s_parm		= tvp5158_s_parm,
 	.s_stream	= tvp5158_s_stream,

@@ -21,6 +21,7 @@
 
 #include <linux/of_i2c.h>
 #include "vip.h"
+#include "../../../drivers/gpu/drm/omapdrm/omap_dmm_tiler.h"
 
 #define VIP_MODULE_NAME "dra7xx-vip"
 #define VIP_INPUT_NAME "Vin0"
@@ -796,6 +797,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		return -1;
 	}
 
+	if (is_tiler_addr(dma_addr))
+		flags |= VPDMA_DATA_MODE_TILED;
 	/*
 	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
 	 */
@@ -904,7 +907,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 		dma_addr = vb2_dma_contig_plane_dma_addr(&buf->vb, 0);
 		drop_data = 0;
 	} else {
-		dma_addr = NULL;
+		dma_addr = 0;
 		drop_data = 1;
 	}
 
@@ -966,7 +969,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 
 		fld = dtd_get_field(dev->write_desc);
-		stream->field = fld ? V4L2_FIELD_TOP : V4L2_FIELD_BOTTOM;
+		stream->field = fld ? V4L2_FIELD_BOTTOM : V4L2_FIELD_TOP;
 
 		vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
 	}
@@ -1162,18 +1165,15 @@ static int vip_enum_fmt_vid_cap(struct file *file, void *priv,
 static int vip_enum_framesizes(struct file *file, void *priv,
 			struct v4l2_frmsizeenum *f)
 {
-	/* For now, hard coded resolutions for OV10635 sensor */
-	int cam_width[7] =	{ 1280, 1280, 752, 640, 600, 352, 320 };
-	int cam_height[7] =	{  800,  720, 480, 480, 400, 288, 240 };
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+	int ret;
 
-	if (f->index >= 7)
-		return -EINVAL;
+	ret = v4l2_subdev_call(dev->sensor, video, enum_framesizes, f);
+	if (ret)
+		vip_dprintk(dev, "enum_framesizes failed in subdev\n");
 
-	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-	f->discrete.width = cam_width[f->index];
-	f->discrete.height = cam_height[f->index];
-
-	return 0;
+	return ret;
 }
 
 static int vip_enum_frameintervals(struct file *file, void *priv,
@@ -1205,14 +1205,23 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_port *port = stream->port;
+	struct vip_dev *dev = stream->port->dev;
+	struct v4l2_mbus_framefmt mbus_fmt;
+	int ret;
 
 	f->fmt.pix.width	= stream->width;
 	f->fmt.pix.height	= stream->height;
 	f->fmt.pix.pixelformat	= port->fmt->fourcc;
-	f->fmt.pix.field	= stream->sup_field;
+	f->fmt.pix.field        = stream->sup_field;
 	f->fmt.pix.colorspace	= port->fmt->colorspace;
 	f->fmt.pix.bytesperline	= stream->bytesperline;
 	f->fmt.pix.sizeimage	= stream->sizeimage;
+
+	ret = v4l2_subdev_call(dev->sensor, video, g_mbus_fmt, &mbus_fmt);
+	if (ret)
+		vip_dprintk(dev, "g_mbus_fmt failed in subdev\n");
+
+	f->fmt.pix.field = mbus_fmt.field;
 
 	return 0;
 }
@@ -1543,6 +1552,14 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	list_add_tail(&buf->dq_list, &dev->vip_bufs);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
+	/* It can so happen on some HW devices that start_dma completes, and
+	* even generates IRQ before we return from here or before vq->streaming
+	* is updated in videobuf2-core.c. If that happens, the vip_irq
+	* doesn't process the buffer as it thinks there was no stream started.
+	* In order handle this situation, we are updating the streaming status
+	* before starting the dma */
+	vq->streaming = 1;
+
 	start_dma(dev, buf);
 
 	return 0;
@@ -1558,12 +1575,6 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
-	if (!vb2_is_streaming(vq))
-		return 0;
-
-	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
-	vpdma_reset_desc_list(&dev->desc_list);
-
 	disable_irqs(dev, dev->slice_id);
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
@@ -1577,6 +1588,13 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
+
+	if (!vb2_is_streaming(vq))
+		return 0;
+
+	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+	vpdma_reset_desc_list(&dev->desc_list);
+
 	return 0;
 }
 
@@ -1720,6 +1738,8 @@ static int vip_setup_parser(struct vip_port *port)
 
 	vip_set_data_interface(port, iface);
 	vip_sync_type(port, sync_type);
+
+	return 0;
 }
 
 static int vip_init_port(struct vip_port *port)
