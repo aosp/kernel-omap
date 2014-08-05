@@ -7,6 +7,26 @@
  */
 /dts-v1/;
 
+/*
+ * Following are the carveout addresses and the sizes for ION. SMC is not reserved for now
+ * C0000000 - SDRAM+1G
+ * BFD00000 - SMC (3MB)
+ * BA300000 - ION (90MB)
+ * B4300000 - TILER SECURE (81 MB)
+ * B3400000 - TILER NONSECURE (15 MB)
+*/
+
+/memreserve/ 0xba300000 0x5a00000;
+/memreserve/ 0xb5200000 0x5100000;
+/memreserve/ 0xb4300000 0xf00000;
+
+/*
+ * Memory is reserved for ipu1 for rearview camera
+ */
+
+/memreserve/ 0x8E000000 0x1000000;
+/memreserve/ 0xA0000000 0x1800000;
+
 /include/ "dra72x.dtsi"
 
 / {
@@ -15,6 +35,34 @@
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&abb_mpu>;
+			operating-points = <
+				/* kHz    uV */
+				/* The OPP_HIGH Only for DVFS enabled Samples */
+				/* OPP_OD need to be enabled only for Refreshed poly fixed Samples */
+				/* dieID reg: 0x4AE0C20C FT_Rev bits[15:8] should be 5 or more to enable OPP_OD */
+				1000000 1090000
+				1176000 1210000
+				1500000 1280000
+				>;
+			clocks = <&dpll_mpu_ck>;
+			clock-names = "cpu";
+			/*
+			 * Transition latency reference from omap5.
+			 * TBD: to be instrumented and use the actual
+			 * value at later point of time
+			 */
+			clock-latency = <300000>;
+			timer {
+				compatible = "arm,armv7-timer";
+				/*
+				 * PPI secure/nonsecure IRQ,
+				 * active low level-sensitive
+				 */
+				interrupts = <1 13 0x308>,
+					   <1 14 0x308>;
+				clock-frequency = <6144000>;
+			};
+
 		};
 	};
 
@@ -24,12 +72,24 @@
 		reg = <0x80000000 0x40000000>; /* 1024 MB */
 	};
 
-
 	vmmc2_fixed: fixedregulator-mmc2 {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmc2_fixed";
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
+	};
+
+	ion_config {
+		compatible = "ti,ion-omap";
+		ti,omap_ion_heap_secure_input_base = <0xba300000>;
+		ti,omap_ion_heap_tiler_base = <0xb5200000>;
+		ti,omap_ion_heap_nonsecure_tiler_base = <0xb4300000>;
+		/*90 MB*/
+		ti,omap_ion_heap_secure_input_size = <0x5A00000>;
+		/*81MB*/
+		ti,omap_ion_heap_tiler_size = <0x5100000>;
+		/*15 MB*/
+		ti,omap_ion_heap_nonsecure_tiler_size = <0xF00000>;
 	};
 
 	vmmcwl_fixed: fixedregulator-mmcwl {
@@ -90,7 +150,7 @@
 		/* Media DAI link */
 		ti,media-cpu = <&mcasp3>;
 		ti,media-codec = <&tlv320aic3106>;
-		ti,media-mclk-freq = <5644800>;
+		ti,media-mclk-freq = <11289600>;
 		ti,media-slots = <2>;
 
 		/* Multichannel DAI link */
@@ -114,6 +174,21 @@
 		ti,level_shifter = <&tpd12s015>;
 	};
 
+	extcon1: gpio_usbvid_extcon1 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 1 0>;
+		interrupt_mode = <0>;
+		dr_mode = "peripheral";
+	};
+
+	extcon2: gpio_usbvid_extcon2 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 2 0>;
+		interrupt_mode = <0>;
+		dr_mode = "host";
+	};
+
+
 };
 
 
@@ -124,6 +199,8 @@
 		&mcasp3_pins
 		&mcasp6_pins
 		&mcasp7_pins
+		&vout1_pins
+		&usb_pins
 	>;
 
 	i2c1_pins: pinmux_i2c1_pins {
@@ -142,8 +219,49 @@
 
 	i2c5_pins: pinmux_i2c5_pins {
 		pinctrl-single,pins = <
-			0x408	0x60000	/* i2c5_sda INPUT | MODE0 */
-			0x40C	0x60000	/* i2c5_scl INPUT | MODE0 */
+			0x2b4	0x6000a	/* i2c5_sda INPUT | MODE10 */
+			0x2b8	0x6000a	/* i2c5_scl INPUT | MODE10 */
+		>;
+	};
+
+	usb_pins: pinmux_usb_pins {
+                pinctrl-single,pins = <
+			0x280	0xc0000	/* DRV1_VBUS SLEW | PULLDEN | MODE14 */
+			0x284	0xc0000	/* DRV2_VBUS SLEW | PULLDEN | MODE14 */
+                >;
+        };
+
+	vout1_pins: pinmux_vout1_pins {
+		pinctrl-single,pins = <
+			0x1C8	0x0	/* vout1_clk OUTPUT | MODE0 */
+			0x1CC	0x0	/* vout1_de OUTPUT | MODE0 */
+			0x1D0	0x0	/* vout1_fld OUTPUT | MODE0 */
+			0x1D4	0x0	/* vout1_hsync OUTPUT | MODE0 */
+			0x1D8	0x0	/* vout1_vsync OUTPUT | MODE0 */
+			0x1DC	0x0	/* vout1_d0 OUTPUT | MODE0 */
+			0x1E0	0x0	/* vout1_d1 OUTPUT | MODE0 */
+			0x1E4	0x0	/* vout1_d2 OUTPUT | MODE0 */
+			0x1E8	0x0	/* vout1_d3 OUTPUT | MODE0 */
+			0x1EC	0x0	/* vout1_d4 OUTPUT | MODE0 */
+			0x1F0	0x0	/* vout1_d5 OUTPUT | MODE0 */
+			0x1F4	0x0	/* vout1_d6 OUTPUT | MODE0 */
+			0x1F8	0x0	/* vout1_d7 OUTPUT | MODE0 */
+			0x1FC	0x0	/* vout1_d8 OUTPUT | MODE0 */
+			0x200	0x0	/* vout1_d9 OUTPUT | MODE0 */
+			0x204	0x0	/* vout1_d10 OUTPUT | MODE0 */
+			0x208	0x0	/* vout1_d11 OUTPUT | MODE0 */
+			0x20C	0x0	/* vout1_d12 OUTPUT | MODE0 */
+			0x210	0x0	/* vout1_d13 OUTPUT | MODE0 */
+			0x214	0x0	/* vout1_d14 OUTPUT | MODE0 */
+			0x218	0x0	/* vout1_d15 OUTPUT | MODE0 */
+			0x21C	0x0	/* vout1_d16 OUTPUT | MODE0 */
+			0x220	0x0	/* vout1_d17 OUTPUT | MODE0 */
+			0x224	0x0	/* vout1_d18 OUTPUT | MODE0 */
+			0x228	0x0	/* vout1_d19 OUTPUT | MODE0 */
+			0x22C	0x0	/* vout1_d20 OUTPUT | MODE0 */
+			0x230	0x0	/* vout1_d21 OUTPUT | MODE0 */
+			0x234	0x0	/* vout1_d22 OUTPUT | MODE0 */
+			0x238	0x0	/* vout1_d23 OUTPUT | MODE0 */
 		>;
 	};
 
@@ -151,6 +269,74 @@
 		pinctrl-single,pins = <
 			0x298 0x00000005	/* xref_clk1.atl_clk1 OUTPUT | MODE5 */
 			0x29c 0x00000005	/* xref_clk2.atl_clk2 OUTPUT | MODE5 */
+		>;
+	};
+
+	vin1a_pins: pinmux_vin1a_pins {
+		pinctrl-single,pins = <
+			0x0DC	0x00040000 /* vin1a_clk0 OUTPUT | MODE0 */
+			0x0E4	0x00040000 /* vin1a_de0 OUTPUT | MODE0 */
+			0x0E8	0x00040000 /* vin1a_fld0 OUTPUT | MODE0 */
+			0x0EC	0x00040000 /* vin1a_hsync0	OUTPUT | MODE0 */
+			0x0F0	0x00040000 /* vin1a_vsync0 OUTPUT | MODE0 */
+			0x0F4	0x00040000 /* vin1a_d0	OUTPUT | MODE0 */
+			0x0F8	0x00040000 /* vin1a_d1	OUTPUT | MODE0 */
+			0x0FC	0x00040000 /* vin1a_d2	OUTPUT | MODE0 */
+			0x100	0x00040000 /* vin1a_d3 	OUTPUT | MODE0 */
+			0x104	0x00040000 /* vin1a_d4 	OUTPUT | MODE0 */
+			0x108	0x00040000 /* vin1a_d5	OUTPUT | MODE0 */
+			0x10C	0x00040000 /* vin1a_d6	OUTPUT | MODE0 */
+			0x110	0x00040000 /* vin1a_d7	OUTPUT | MODE0 */
+			0x114	0x00040000 /* vin1a_d8	OUTPUT | MODE0 */
+			0x118	0x00040000 /* vin1a_d9	OUTPUT | MODE0 */
+			0x11C	0x00040000 /* vin1a_d10	OUTPUT | MODE0 */
+			0x120	0x00040000 /* vin1a_d11	OUTPUT | MODE0 */
+			0x124	0x00040000 /* vin1a_d12	OUTPUT | MODE0 */
+			0x128	0x00040000 /* vin1a_d13	OUTPUT | MODE0 */
+			0x12C	0x00040000 /* vin1a_d14	OUTPUT | MODE0 */
+			0x130	0x00040000 /* vin1a_d15	OUTPUT | MODE0 */
+			0x134	0x00040000 /* vin1a_d16	OUTPUT | MODE0 */
+			0x138	0x00040000 /* vin1a_d17	OUTPUT | MODE0 */
+			0x13C	0x00040000 /* vin1a_d18	OUTPUT | MODE0 */
+			0x140	0x00040000 /* vin1a_d19	OUTPUT | MODE0 */
+			0x144	0x00040000 /* vin1a_d20	OUTPUT | MODE0 */
+			0x148	0x00040000 /* vin1a_d21	OUTPUT | MODE0 */
+			0x14C	0x00040000 /* vin1a_d22	OUTPUT | MODE0 */
+			0x150	0x00040000 /* vin1a_d23	OUTPUT | MODE0 */
+		>;
+	};
+
+	vin2a_pins: pinmux_vin2a_pins {
+		pinctrl-single,pins = <
+			0x154	0x00040000 /* vin2a_clk0 OUTPUT | MODE0 */
+			0x058	0x00040000 /* vin2a_de0 OUTPUT | MODE0 */
+			0x05C	0x00040000 /* vin2a_fld0 OUTPUT | MODE0 */
+			0x160	0x00040000 /* vin2a_hsync0 OUTPUT | MODE0 */
+			0x164	0x00040000 /* vin2a_vsync0 OUTPUT | MODE0 */
+			0x168	0x00040000 /* vin2a_d0	OUTPUT | MODE0 */
+			0x16C	0x00040000 /* vin2a_d1	OUTPUT | MODE0 */
+			0x170	0x00040000 /* vin2a_d2	OUTPUT | MODE0 */
+			0x174	0x00040000 /* vin2a_d3	OUTPUT | MODE0 */
+			0x178	0x00040000 /* vin2a_d4	OUTPUT | MODE0 */
+			0x17C	0x00040000 /* vin2a_d5	OUTPUT | MODE0 */
+			0x180	0x00040000 /* vin2a_d6	OUTPUT | MODE0 */
+			0x184	0x00040000 /* vin2a_d7	OUTPUT | MODE0 */
+			0x188	0x00040000 /* vin2a_d8	OUTPUT | MODE0 */
+			0x18C	0x00040000 /* vin2a_d9	OUTPUT | MODE0 */
+			0x190	0x00040000 /* vin2a_d10	OUTPUT | MODE0 */
+			0x194	0x00040000 /* vin2a_d11	OUTPUT | MODE0 */
+			0x198	0x00040000 /* vin2a_d12	OUTPUT | MODE0 */
+			0x19C	0x00040000 /* vin2a_d13	OUTPUT | MODE0 */
+			0x1A0	0x00040000 /* vin2a_d14	OUTPUT | MODE0 */
+			0x1A4	0x00040000 /* vin2a_d15	OUTPUT | MODE0 */
+			0x1A8	0x00040000 /* vin2a_d16	OUTPUT | MODE0 */
+			0x1AC	0x00040000 /* vin2a_d17	OUTPUT | MODE0 */
+			0x1B0	0x00040000 /* vin2a_d18	OUTPUT | MODE0 */
+			0x1B4	0x00040000 /* vin2a_d19	OUTPUT | MODE0 */
+			0x1B8	0x00040000 /* vin2a_d20	OUTPUT | MODE0 */
+			0x1BC	0x00040000 /* vin2a_d21	OUTPUT | MODE0 */
+			0x1C0	0x00040000 /* vin2a_d22	OUTPUT | MODE0 */
+			0x1C4	0x00040000 /* vin2a_d23	OUTPUT | MODE0 */
 		>;
 	};
 
@@ -218,7 +404,7 @@
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108";
 		reg = <0x40>;
-		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+		gpios = <&pcf_lcd 13 0>; /* P15, CON_LCD_PWR_DN */
 	};
 
 	tlv320aic3106: tlv320aic3106@19 {
@@ -263,6 +449,7 @@
 					regulator-name = "smps2";
 					regulator-min-microvolt = <850000>;
 					regulator-max-microvolt = <1030000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
@@ -271,6 +458,7 @@
 					regulator-name = "smps3";
 					regulator-min-microvolt = <850000>;
 					regulator-max-microvolt = <1250000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
@@ -288,6 +476,7 @@
 						regulator-name = "smps5";
 						regulator-min-microvolt = <1350000>;
 						regulator-max-microvolt = <1350000>;
+						regulator-always-on;
 						regulator-boot-on;
 				};
 
@@ -304,6 +493,7 @@
 					regulator-name = "ldo3";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
@@ -321,6 +511,21 @@
 					regulator-name = "ldo4";
 					regulator-min-microvolt = <3300000>;
 					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				regen1_reg: regen1 {
+					/* GPIO0-> 3V3 ON */
+					regulator-name = "regen1";
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				regen3_reg: regen3 {
+					/* GPIO5-> DDR ON */
+					regulator-name = "regen3";
+					regulator-always-on;
 					regulator-boot-on;
 				};
 			};
@@ -371,6 +576,30 @@
 		DRVDD-supply = <&vaudio_3v3>;
 	};
 
+	camera_ov10635: camera_ov10635 {
+		compatible = "ti,camera-ov10635";
+		gpios = <&pcf_hdmi 2 0>,
+			<&pcf_hdmi 3 0>,
+			<&gpio4 13 0>,
+			<&gpio4 14 0>,
+			<&gpio4 15 0>,
+			<&gpio4 16 0>,
+			<&gpio6 17 0>;
+	};
+
+	ov10633@37 {
+		compatible = "omnivision,ov10633";
+		reg = <0x37>;
+
+		port {
+			onboardLI: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
+	};
+
 };
 
 &i2c3 {
@@ -385,6 +614,18 @@
 	clock-frequency = <400000>;
 };
 
+
+&vip1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
+};
+
+&vin2a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
+};
 
 &mmc1 {
 	vmmc-supply = <&ldo1_reg>;
@@ -418,7 +659,7 @@
 
 &dpi1 {
 	lcd {
-		compatible = "ti,tfc_s9700";
+		compatible = "ti,tfc_lp101";
 		tlc = <&tlc59108>;
 		data-lines = <24>;
 	};
