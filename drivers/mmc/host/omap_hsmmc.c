@@ -582,7 +582,7 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 	 *	- MMC/SD clock coming out of controller > 25MHz
 	 */
 	if ((mmc_slot(host).features & HSMMC_HAS_HSPE_SUPPORT) &&
-	    (ios->timing != MMC_TIMING_UHS_DDR50) &&
+	    (ios->timing != MMC_TIMING_MMC_DDR52) &&
 	    ((OMAP_HSMMC_READ(host->base, CAPA) & HSS) == HSS)) {
 		regval = OMAP_HSMMC_READ(host->base, HCTL);
 		if (clkdiv && (clk_get_rate(host->fclk)/clkdiv) > 25000000)
@@ -602,7 +602,7 @@ static void omap_hsmmc_set_bus_width(struct omap_hsmmc_host *host)
 	u32 con;
 
 	con = OMAP_HSMMC_READ(host->base, CON);
-	if (ios->timing == MMC_TIMING_UHS_DDR50)
+	if (ios->timing == MMC_TIMING_MMC_DDR52)
 		con |= DDR;	/* configure in DDR mode */
 	else
 		con &= ~DDR;
@@ -2185,6 +2185,10 @@ static int omap_hsmmc_suspend(struct device *dev)
 		clk_disable_unprepare(host->dbclk);
 
 	pm_runtime_put_sync(host->dev);
+
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(host->dev);
+
 	return 0;
 }
 
@@ -2195,6 +2199,9 @@ static int omap_hsmmc_resume(struct device *dev)
 
 	if (!host)
 		return 0;
+
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(host->dev);
 
 	pm_runtime_get_sync(host->dev);
 
@@ -2226,6 +2233,9 @@ static int omap_hsmmc_runtime_suspend(struct device *dev)
 	omap_hsmmc_context_save(host);
 	dev_dbg(dev, "disabled\n");
 
+	/* Optionally let pins go into sleep state */
+	pinctrl_pm_select_sleep_state(host->dev);
+
 	return 0;
 }
 
@@ -2234,6 +2244,10 @@ static int omap_hsmmc_runtime_resume(struct device *dev)
 	struct omap_hsmmc_host *host;
 
 	host = platform_get_drvdata(to_platform_device(dev));
+
+	/* go to the default state */
+	pinctrl_pm_select_default_state(host->dev);
+
 	omap_hsmmc_context_restore(host);
 	dev_dbg(dev, "enabled\n");
 

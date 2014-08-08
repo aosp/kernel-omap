@@ -358,6 +358,9 @@
 #define AM33XX_CONTROL_STATUS_SYSBOOT1_WIDTH		0x2
 #define AM33XX_CONTROL_STATUS_SYSBOOT1_MASK		(0x3 << 22)
 
+/* AM33XX CONTROL_SECURE_SDRAM_CONFIG register */
+#define AM33XX_CONTROL_SECURE_SDRAM_CONFIG	0x110
+
 /* AM33XX PWMSS Control register */
 #define AM33XX_PWMSS_TBCLK_CLKCTRL			0x664
 
@@ -428,6 +431,7 @@ extern void omap_ctrl_write_dsp_boot_mode(u8 bootmode);
 extern void omap3630_ctrl_disable_rta(void);
 extern int omap3_ctrl_save_padconf(void);
 extern void omap3_ctrl_set_iva_bootmode_idle(void);
+int of_control_init(void);
 extern void omap2_set_globals_control(void __iomem *ctrl,
 				      void __iomem *ctrl_pad);
 #else

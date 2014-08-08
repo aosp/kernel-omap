@@ -1,7 +1,7 @@
 /*
  * Mailbox: Common code for Mailbox controllers and users
  *
- * Copyright (C) 2014 Linaro Ltd.
+ * Copyright (C) 2013-2014 Linaro Ltd.
  * Author: Jassi Brar <jassisinghbrar@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 static LIST_HEAD(mbox_cons);
 static DEFINE_MUTEX(con_mutex);
 
-static int _add_to_rbuf(struct mbox_chan *chan, void *mssg)
+static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 {
 	int idx;
 	unsigned long flags;
@@ -54,7 +54,7 @@ static int _add_to_rbuf(struct mbox_chan *chan, void *mssg)
 	return idx;
 }
 
-static void _msg_submit(struct mbox_chan *chan)
+static void msg_submit(struct mbox_chan *chan)
 {
 	unsigned count, idx;
 	unsigned long flags;
@@ -98,13 +98,14 @@ static void tx_tick(struct mbox_chan *chan, int r)
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	/* Submit next message */
-	_msg_submit(chan);
+	msg_submit(chan);
 
 	/* Notify the client */
+	if (mssg && chan->cl->tx_done)
+		chan->cl->tx_done(chan->cl, mssg, r);
+
 	if (chan->cl->tx_block)
 		complete(&chan->tx_complete);
-	else if (mssg && chan->cl->tx_done)
-		chan->cl->tx_done(chan->cl, mssg, r);
 }
 
 static void poll_txdone(unsigned long data)
@@ -125,15 +126,15 @@ static void poll_txdone(unsigned long data)
 	}
 
 	if (resched)
-		mod_timer(&mbox->poll,
-			jiffies + msecs_to_jiffies(mbox->period));
+		mod_timer(&mbox->poll, jiffies +
+				msecs_to_jiffies(mbox->period));
 }
 
 /**
  * mbox_chan_received_data - A way for controller driver to push data
  *				received from remote to the upper layer.
  * @chan: Pointer to the mailbox channel on which RX happened.
- * @data: Client specific message typecasted as void *
+ * @mssg: Client specific message typecasted as void *
  *
  * After startup and before shutdown any data received on the chan
  * is passed on to the API via atomic mbox_chan_received_data().
@@ -227,8 +228,6 @@ EXPORT_SYMBOL_GPL(mbox_client_peek_data);
  * is not queued, a negative token is returned. Upon failure or successful
  * TX, the API calls 'tx_done' from atomic context, from which the client
  * could submit yet another request.
- *  In blocking mode, 'tx_done' is not called, effectively making the
- * queue length 1.
  * The pointer to message should be preserved until it is sent
  * over the chan, i.e, tx_done() is made.
  * This function could be called from atomic context as it simply
@@ -245,13 +244,13 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 	if (!chan || !chan->cl)
 		return -EINVAL;
 
-	t = _add_to_rbuf(chan, mssg);
+	t = add_to_rbuf(chan, mssg);
 	if (t < 0) {
 		pr_err("Try increasing MBOX_TX_QUEUE_LEN\n");
 		return t;
 	}
 
-	_msg_submit(chan);
+	msg_submit(chan);
 
 	reinit_completion(&chan->tx_complete);
 
@@ -281,6 +280,7 @@ EXPORT_SYMBOL_GPL(mbox_send_message);
 /**
  * mbox_request_channel - Request a mailbox channel.
  * @cl: Identity of the client requesting the channel.
+ * @index: Index of mailbox specifier in 'mboxes' property.
  *
  * The Client specifies its requirements and capabilities while asking for
  * a mailbox channel. It can't be called from atomic context.
@@ -294,64 +294,42 @@ EXPORT_SYMBOL_GPL(mbox_send_message);
  * Return: Pointer to the channel assigned to the client if successful.
  *		ERR_PTR for request failure.
  */
-struct mbox_chan *mbox_request_channel(struct mbox_client *cl)
+struct mbox_chan *mbox_request_channel(struct mbox_client *cl, int index)
 {
 	struct device *dev = cl->dev;
 	struct mbox_controller *mbox;
 	struct of_phandle_args spec;
 	struct mbox_chan *chan;
 	unsigned long flags;
-	int count, i, ret;
+	int ret;
 
 	if (!dev || !dev->of_node) {
-		pr_err("%s: No owner device node\n", __func__);
-		return ERR_PTR(-ENODEV);
-	}
-
-	count = of_property_count_strings(dev->of_node, "mbox-names");
-	if (count < 0) {
-		pr_err("%s: mbox-names property of node '%s' missing\n",
-			__func__, dev->of_node->full_name);
+		pr_debug("%s: No owner device node\n", __func__);
 		return ERR_PTR(-ENODEV);
 	}
 
 	mutex_lock(&con_mutex);
 
-	ret = -ENODEV;
-	for (i = 0; i < count; i++) {
-		const char *s;
-
-		if (of_property_read_string_index(dev->of_node,
-						"mbox-names", i, &s))
-			continue;
-
-		if (strcmp(cl->chan_name, s))
-			continue;
-
-		if (of_parse_phandle_with_args(dev->of_node,
-					 "mbox", "#mbox-cells",	i, &spec))
-			continue;
-
-		chan = NULL;
-		list_for_each_entry(mbox, &mbox_cons, node)
-			if (mbox->dev->of_node == spec.np) {
-				chan = mbox->of_xlate(mbox, &spec);
-				break;
-			}
-
-		of_node_put(spec.np);
-
-		if (!chan)
-			continue;
-
-		ret = -EBUSY;
-		if (!chan->cl && try_module_get(mbox->dev->driver->owner))
-			break;
+	if (of_parse_phandle_with_args(dev->of_node, "mboxes",
+				       "#mbox-cells", index, &spec)) {
+		pr_debug("%s: can't parse \"mboxes\" property\n", __func__);
+		mutex_unlock(&con_mutex);
+		return ERR_PTR(-ENODEV);
 	}
 
-	if (i == count) {
+	chan = NULL;
+	list_for_each_entry(mbox, &mbox_cons, node)
+		if (mbox->dev->of_node == spec.np) {
+			chan = mbox->of_xlate(mbox, &spec);
+			break;
+		}
+
+	of_node_put(spec.np);
+
+	if (!chan || chan->cl || !try_module_get(mbox->dev->driver->owner)) {
+		pr_debug("%s: mailbox not free\n", __func__);
 		mutex_unlock(&con_mutex);
-		return ERR_PTR(ret);
+		return ERR_PTR(-EBUSY);
 	}
 
 	spin_lock_irqsave(&chan->lock, flags);
@@ -361,9 +339,9 @@ struct mbox_chan *mbox_request_channel(struct mbox_client *cl)
 	chan->cl = cl;
 	init_completion(&chan->tx_complete);
 
-	if (chan->txdone_method	== TXDONE_BY_POLL
-			&& cl->knows_txdone)
+	if (chan->txdone_method	== TXDONE_BY_POLL && cl->knows_txdone)
 		chan->txdone_method |= TXDONE_BY_ACK;
+
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	ret = chan->mbox->ops->startup(chan);
@@ -406,7 +384,7 @@ EXPORT_SYMBOL_GPL(mbox_free_channel);
 
 static struct mbox_chan *
 of_mbox_index_xlate(struct mbox_controller *mbox,
-				const struct of_phandle_args *sp)
+		    const struct of_phandle_args *sp)
 {
 	int ind = sp->args[0];
 
@@ -420,7 +398,7 @@ of_mbox_index_xlate(struct mbox_controller *mbox,
  * mbox_controller_register - Register the mailbox controller
  * @mbox:	Pointer to the mailbox controller.
  *
- * The controller driver registers its communication chans
+ * The controller driver registers its communication channels
  */
 int mbox_controller_register(struct mbox_controller *mbox)
 {
@@ -463,7 +441,7 @@ int mbox_controller_register(struct mbox_controller *mbox)
 EXPORT_SYMBOL_GPL(mbox_controller_register);
 
 /**
- * mbox_controller_unregister - UnRegister the mailbox controller
+ * mbox_controller_unregister - Unregister the mailbox controller
  * @mbox:	Pointer to the mailbox controller.
  */
 void mbox_controller_unregister(struct mbox_controller *mbox)

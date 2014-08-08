@@ -170,6 +170,18 @@
 			};
 		};
 
+		bandgap: bandgap@4a0021e0 {
+			reg = <0x4a0021e0 0xc
+				0x4a00232c 0xc
+				0x4a002380 0x2c
+				0x4a0023C0 0x3c
+				0x4a002564 0x8
+				0x4a002574 0x50>;
+				compatible = "ti,dra752-bandgap";
+				interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+				#thermal-sensor-cells = <1>;
+		};
+
 		cm_core_aon: cm_core_aon@4a005000 {
 			compatible = "ti,dra7-cm-core-aon";
 			reg = <0x4a005000 0x2000>;
@@ -196,10 +208,28 @@
 			};
 		};
 
+		ctrl_core: ctrl_core@4a002000 {
+			compatible = "ti,dra7-ctrl-core";
+			reg = <0x4a002000 0x6d0>;
+
+			ctrl_core_clocks: clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			ctrl_core_clockdomains: clockdomains {
+			};
+		};
+
 		counter32k: counter@4ae04000 {
 			compatible = "ti,omap-counter32k";
 			reg = <0x4ae04000 0x40>;
 			ti,hwmods = "counter_32k";
+		};
+
+		dra7_ctrl_core: tisysconcore@4a002000 {
+			compatible = "syscon";
+			reg = <0x4a002000 0x6d0>;
 		};
 
 		dra7_ctrl_general: tisyscon@4a002e00 {
@@ -247,7 +277,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio2: gpio@48055000 {
@@ -258,7 +288,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio3: gpio@48057000 {
@@ -269,7 +299,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio4: gpio@48059000 {
@@ -280,7 +310,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio5: gpio@4805b000 {
@@ -291,7 +321,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio6: gpio@4805d000 {
@@ -302,7 +332,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio7: gpio@48051000 {
@@ -313,7 +343,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		gpio8: gpio@48053000 {
@@ -324,7 +354,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 		};
 
 		uart1: serial@4806a000 {
@@ -414,6 +444,136 @@
 			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "uart10";
 			clock-frequency = <48000000>;
+			status = "disabled";
+		};
+
+		mailbox1: mailbox@4a0f4000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x4a0f4000 0x200>;
+			ti,hwmods = "mailbox1";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <3>;
+			ti,mbox-num-fifos = <8>;
+			status = "disabled";
+		};
+
+		mailbox2: mailbox@4883a000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x4883a000 0x200>;
+			ti,hwmods = "mailbox2";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox3: mailbox@4883c000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x4883c000 0x200>;
+			ti,hwmods = "mailbox3";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox4: mailbox@4883e000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x4883e000 0x200>;
+			ti,hwmods = "mailbox4";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox5: mailbox@48840000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48840000 0x200>;
+			ti,hwmods = "mailbox5";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox6: mailbox@48842000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48842000 0x200>;
+			ti,hwmods = "mailbox6";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox7: mailbox@48844000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48844000 0x200>;
+			ti,hwmods = "mailbox7";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox8: mailbox@48846000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48846000 0x200>;
+			ti,hwmods = "mailbox8";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox9: mailbox@4885e000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x4885e000 0x200>;
+			ti,hwmods = "mailbox9";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox10: mailbox@48860000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48860000 0x200>;
+			ti,hwmods = "mailbox10";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox11: mailbox@48862000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48862000 0x200>;
+			ti,hwmods = "mailbox11";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox12: mailbox@48864000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48864000 0x200>;
+			ti,hwmods = "mailbox12";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
+			status = "disabled";
+		};
+
+		mailbox13: mailbox@48802000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x48802000 0x200>;
+			ti,hwmods = "mailbox13";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <12>;
 			status = "disabled";
 		};
 
@@ -535,7 +695,7 @@
 		};
 
 		wdt2: wdt@4ae14000 {
-			compatible = "ti,omap4-wdt";
+			compatible = "ti,omap3-wdt";
 			reg = <0x4ae14000 0x80>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "wd_timer2";
@@ -1023,6 +1183,15 @@
 			status = "disabled";
 		};
 
+		rtc: rtcss@48838000 {
+			compatible = "ti,am3352-rtc";
+			reg = <0x48838000 0x100>;
+			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "rtcss";
+			clocks = <&sys_32k_ck>;
+		};
+
 		omap_control_usb2phy1: control-phy@4a002300 {
 			compatible = "ti,control-phy-usb2";
 			reg = <0x4a002300 0x4>;
@@ -1279,7 +1448,7 @@
 		elm: elm@48078000 {
 			compatible = "ti,am3352-elm";
 			reg = <0x48078000 0xfc0>;      /* device IO registers */
-			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "elm";
 			status = "disabled";
 		};
@@ -1288,12 +1457,56 @@
 			compatible = "ti,am3352-gpmc";
 			ti,hwmods = "gpmc";
 			reg = <0x50000000 0x37c>;      /* device IO registers */
-			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
 			gpmc,num-cs = <8>;
 			gpmc,num-waitpins = <2>;
 			#address-cells = <2>;
 			#size-cells = <1>;
 			status = "disabled";
+		};
+
+		dss: dss@58000000 {
+			compatible = "ti,dra7-dss";
+			reg = <0x58000000 0x80>,
+			      <0x58004054 0x4>,
+			      <0x58004300 0x20>,
+			      <0x58009054 0x4>,
+			      <0x58009300 0x20>;
+			reg-names = "dss", "pll1_clkctrl", "pll1",
+				    "pll2_clkctrl", "pll2";
+			status = "disabled";
+			ti,hwmods = "dss_core";
+			clocks = <&dss_dss_clk>,
+				 <&dss_video1_clk>,
+				 <&dss_video2_clk>;
+			clock-names = "fck", "video1_clk", "video2_clk";
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			dispc@58001000 {
+				compatible = "ti,dra7-dispc";
+				reg = <0x58001000 0x1000>;
+				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+				ti,hwmods = "dss_dispc";
+				clocks = <&dss_dss_clk>;
+				clock-names = "fck";
+			};
+
+			hdmi: encoder@58060000 {
+				compatible = "ti,dra7-hdmi";
+				reg = <0x58040000 0x200>,
+				      <0x58040200 0x80>,
+				      <0x58040300 0x80>,
+				      <0x58060000 0x19000>;
+				reg-names = "wp", "pll", "phy", "core";
+				interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+				ti,hwmods = "dss_hdmi";
+				clocks = <&dss_48mhz_clk>, <&dss_hdmi_clk>;
+				clock-names = "fck", "sys_clk";
+			};
 		};
 	};
 };
