@@ -17,12 +17,13 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/bitops.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox_controller.h>
 
-#define TXDONE_BY_IRQ	(1 << 0) /* controller has remote RTR irq */
-#define TXDONE_BY_POLL	(1 << 1) /* controller can read status of last TX */
-#define TXDONE_BY_ACK	(1 << 2) /* S/W ACK recevied by Client ticks the TX */
+#define TXDONE_BY_IRQ	BIT(0) /* controller has remote RTR irq */
+#define TXDONE_BY_POLL	BIT(1) /* controller can read status of last TX */
+#define TXDONE_BY_ACK	BIT(2) /* S/W ACK recevied by Client ticks the TX */
 
 static LIST_HEAD(mbox_cons);
 static DEFINE_MUTEX(con_mutex);
@@ -37,7 +38,7 @@ static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 	/* See if there is any space left */
 	if (chan->msg_count == MBOX_TX_QUEUE_LEN) {
 		spin_unlock_irqrestore(&chan->lock, flags);
-		return -ENOMEM;
+		return -ENOBUFS;
 	}
 
 	idx = chan->msg_free;
@@ -63,10 +64,8 @@ static void msg_submit(struct mbox_chan *chan)
 
 	spin_lock_irqsave(&chan->lock, flags);
 
-	if (!chan->msg_count || chan->active_req) {
-		spin_unlock_irqrestore(&chan->lock, flags);
-		return;
-	}
+	if (!chan->msg_count || chan->active_req)
+		goto exit;
 
 	count = chan->msg_count;
 	idx = chan->msg_free;
@@ -83,7 +82,7 @@ static void msg_submit(struct mbox_chan *chan)
 		chan->active_req = data;
 		chan->msg_count--;
 	}
-
+exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 }
 
@@ -161,7 +160,8 @@ EXPORT_SYMBOL_GPL(mbox_chan_received_data);
 void mbox_chan_txdone(struct mbox_chan *chan, int r)
 {
 	if (unlikely(!(chan->txdone_method & TXDONE_BY_IRQ))) {
-		pr_err("Controller can't run the TX ticker\n");
+		dev_err(chan->mbox->dev,
+		       "Controller can't run the TX ticker\n");
 		return;
 	}
 
@@ -181,7 +181,7 @@ EXPORT_SYMBOL_GPL(mbox_chan_txdone);
 void mbox_client_txdone(struct mbox_chan *chan, int r)
 {
 	if (unlikely(!(chan->txdone_method & TXDONE_BY_ACK))) {
-		pr_err("Client can't run the TX ticker\n");
+		dev_err(chan->mbox->dev, "Client can't run the TX ticker\n");
 		return;
 	}
 
@@ -246,7 +246,7 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 
 	t = add_to_rbuf(chan, mssg);
 	if (t < 0) {
-		pr_err("Try increasing MBOX_TX_QUEUE_LEN\n");
+		dev_err(chan->mbox->dev, "Try increasing MBOX_TX_QUEUE_LEN\n");
 		return t;
 	}
 
@@ -261,7 +261,7 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 		unsigned long wait;
 		int ret;
 
-		if (!chan->cl->tx_tout) /* wait for ever */
+		if (!chan->cl->tx_tout) /* wait forever */
 			wait = msecs_to_jiffies(3600000);
 		else
 			wait = msecs_to_jiffies(chan->cl->tx_tout);
@@ -312,7 +312,7 @@ struct mbox_chan *mbox_request_channel(struct mbox_client *cl, int index)
 
 	if (of_parse_phandle_with_args(dev->of_node, "mboxes",
 				       "#mbox-cells", index, &spec)) {
-		pr_debug("%s: can't parse \"mboxes\" property\n", __func__);
+		dev_dbg(dev, "%s: can't parse \"mboxes\" property\n", __func__);
 		mutex_unlock(&con_mutex);
 		return ERR_PTR(-ENODEV);
 	}
@@ -327,7 +327,7 @@ struct mbox_chan *mbox_request_channel(struct mbox_client *cl, int index)
 	of_node_put(spec.np);
 
 	if (!chan || chan->cl || !try_module_get(mbox->dev->driver->owner)) {
-		pr_debug("%s: mailbox not free\n", __func__);
+		dev_dbg(dev, "%s: mailbox not free\n", __func__);
 		mutex_unlock(&con_mutex);
 		return ERR_PTR(-EBUSY);
 	}
@@ -346,7 +346,7 @@ struct mbox_chan *mbox_request_channel(struct mbox_client *cl, int index)
 
 	ret = chan->mbox->ops->startup(chan);
 	if (ret) {
-		pr_err("Unable to startup the chan (%d)\n", ret);
+		dev_err(dev, "Unable to startup the chan (%d)\n", ret);
 		mbox_free_channel(chan);
 		chan = ERR_PTR(ret);
 	}
@@ -423,6 +423,7 @@ int mbox_controller_register(struct mbox_controller *mbox)
 
 	for (i = 0; i < mbox->num_chans; i++) {
 		struct mbox_chan *chan = &mbox->chans[i];
+
 		chan->cl = NULL;
 		chan->mbox = mbox;
 		chan->txdone_method = txdone;

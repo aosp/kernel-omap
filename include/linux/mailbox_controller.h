@@ -8,6 +8,10 @@
 #define __MAILBOX_CONTROLLER_H
 
 #include <linux/of.h>
+#include <linux/types.h>
+#include <linux/timer.h>
+#include <linux/device.h>
+#include <linux/completion.h>
 
 struct mbox_chan;
 
@@ -75,8 +79,8 @@ struct mbox_controller {
 	bool txdone_irq;
 	bool txdone_poll;
 	unsigned txpoll_period;
-	struct mbox_chan * (*of_xlate)(struct mbox_controller *mbox,
-				       const struct of_phandle_args *sp);
+	struct mbox_chan *(*of_xlate)(struct mbox_controller *mbox,
+				      const struct of_phandle_args *sp);
 	/* Internal to API */
 	struct timer_list poll;
 	unsigned period;
