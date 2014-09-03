@@ -26,6 +26,7 @@
 #include "ion_priv.h"
 
 struct ion_device *idev;
+EXPORT_SYMBOL(idev);
 struct ion_heap **heaps;
 
 void *carveout_ptr;
