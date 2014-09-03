@@ -47,7 +47,7 @@ struct ion_platform_heap dummy_heaps[] = {
 			.id	= ION_HEAP_TYPE_CARVEOUT,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= "carveout",
-			.size	= SZ_4M,
+			.size	= SZ_8M,
 		},
 		{
 			.id	= ION_HEAP_TYPE_CHUNK,
