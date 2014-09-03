@@ -136,7 +136,7 @@
 
 #define BADBLOCK_MARKER_LENGTH		2
 
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 static u_char bch16_vector[] = {0xf5, 0x24, 0x1c, 0xd0, 0x61, 0xb3, 0xf1, 0x55,
 				0x2e, 0x2c, 0x86, 0xa3, 0xed, 0x36, 0x1b, 0x78,
 				0x48, 0x76, 0xa9, 0x3b, 0x97, 0xd1, 0x7a, 0x93,
@@ -932,7 +932,7 @@ static int omap_calculate_ecc(struct mtd_info *mtd, const u_char *dat,
 	u32 val;
 
 	val = readl(info->reg.gpmc_ecc_config);
-	if (((val >> ECC_CONFIG_CS_SHIFT)  & ~CS_MASK) != info->gpmc_cs)
+	if (((val >> ECC_CONFIG_CS_SHIFT) & CS_MASK) != info->gpmc_cs)
 		return -EINVAL;
 
 	/* read ecc result */
@@ -1332,7 +1332,7 @@ static int erased_sector_bitflips(u_char *data, u_char *oob,
 	return flip_bits;
 }
 
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 /**
  * omap_elm_correct_data - corrects page data area in case error reported
  * @mtd:	MTD device structure
@@ -1802,9 +1802,12 @@ static int omap_nand_probe(struct platform_device *pdev)
 	}
 
 	/* populate MTD interface based on ECC scheme */
-	nand_chip->ecc.layout	= &omap_oobinfo;
 	ecclayout		= &omap_oobinfo;
 	switch (info->ecc_opt) {
+	case OMAP_ECC_HAM1_CODE_SW:
+		nand_chip->ecc.mode = NAND_ECC_SOFT;
+		break;
+
 	case OMAP_ECC_HAM1_CODE_HW:
 		pr_info("nand: using OMAP_ECC_HAM1_CODE_HW\n");
 		nand_chip->ecc.mode             = NAND_ECC_HW;
@@ -1830,7 +1833,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 		break;
 
 	case OMAP_ECC_BCH4_CODE_HW_DETECTION_SW:
-#ifdef CONFIG_MTD_NAND_ECC_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_ECC_BCH)
 		pr_info("nand: using OMAP_ECC_BCH4_CODE_HW_DETECTION_SW\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1856,7 +1859,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 		nand_chip->ecc.priv		= nand_bch_init(mtd,
 							nand_chip->ecc.size,
 							nand_chip->ecc.bytes,
-							&nand_chip->ecc.layout);
+							&ecclayout);
 		if (!nand_chip->ecc.priv) {
 			pr_err("nand: error: unable to use s/w BCH library\n");
 			err = -EINVAL;
@@ -1869,7 +1872,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH4_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("nand: using OMAP_ECC_BCH4_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1931,7 +1934,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 		nand_chip->ecc.priv		= nand_bch_init(mtd,
 							nand_chip->ecc.size,
 							nand_chip->ecc.bytes,
-							&nand_chip->ecc.layout);
+							&ecclayout);
 		if (!nand_chip->ecc.priv) {
 			pr_err("nand: error: unable to use s/w BCH library\n");
 			err = -EINVAL;
@@ -1945,7 +1948,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH8_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("nand: using OMAP_ECC_BCH8_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1981,7 +1984,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH16_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("using OMAP_ECC_BCH16_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -2020,6 +2023,9 @@ static int omap_nand_probe(struct platform_device *pdev)
 		goto return_error;
 	}
 
+	if (info->ecc_opt == OMAP_ECC_HAM1_CODE_SW)
+		goto scan_tail;
+
 	/* all OOB bytes from oobfree->offset till end off OOB are free */
 	ecclayout->oobfree->length = mtd->oobsize - ecclayout->oobfree->offset;
 	/* check if NAND device's OOB is enough to store ECC signatures */
@@ -2029,7 +2035,9 @@ static int omap_nand_probe(struct platform_device *pdev)
 		err = -EINVAL;
 		goto return_error;
 	}
+	nand_chip->ecc.layout = ecclayout;
 
+scan_tail:
 	/* second phase scan */
 	if (nand_scan_tail(mtd)) {
 		err = -ENXIO;
