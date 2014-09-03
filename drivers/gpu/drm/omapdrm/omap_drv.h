@@ -119,6 +119,88 @@ struct omap_drm_private {
 	struct omap_drm_irq error_handler;
 };
 
+/*
+ * GEM buffer object implementation.
+ */
+
+#define to_omap_bo(x) container_of(x, struct omap_gem_object, base)
+
+struct omap_gem_object {
+	struct drm_gem_object base;
+
+	struct list_head mm_list;
+
+	uint32_t flags;
+
+	/** width/height for tiled formats (rounded up to slot boundaries) */
+	uint16_t width, height;
+
+	/** roll applied when mapping to DMM */
+	uint32_t roll;
+
+	/**
+	 * If buffer is allocated physically contiguous, the OMAP_BO_DMA flag
+	 * is set and the paddr is valid.  Also if the buffer is remapped in
+	 * TILER and paddr_cnt > 0, then paddr is valid.  But if you are using
+	 * the physical address and OMAP_BO_DMA is not set, then you should
+	 * be going thru omap_gem_{get,put}_paddr() to ensure the mapping is
+	 * not removed from under your feet.
+	 *
+	 * Note that OMAP_BO_SCANOUT is a hint from userspace that DMA capable
+	 * buffer is requested, but doesn't mean that it is.  Use the
+	 * OMAP_BO_DMA flag to determine if the buffer has a DMA capable
+	 * physical address.
+	 */
+	dma_addr_t paddr;
+
+	/**
+	 * # of users of paddr
+	 */
+	uint32_t paddr_cnt;
+
+	/**
+	 * tiler block used when buffer is remapped in DMM/TILER.
+	 */
+	struct tiler_block *block;
+
+	/**
+	 * Array of backing pages, if allocated.  Note that pages are never
+	 * allocated for buffers originally allocated from contiguous memory
+	 */
+	struct page **pages;
+
+	/** addresses corresponding to pages in above array */
+	dma_addr_t *addrs;
+
+	/**
+	 * Virtual address, if mapped.
+	 */
+	void *vaddr;
+
+	/**
+	 * sync-object allocated on demand (if needed)
+	 *
+	 * Per-buffer sync-object for tracking pending and completed hw/dma
+	 * read and write operations.  The layout in memory is dictated by
+	 * the SGX firmware, which uses this information to stall the command
+	 * stream if a surface is not ready yet.
+	 *
+	 * Note that when buffer is used by SGX, the sync-object needs to be
+	 * allocated from a special heap of sync-objects.  This way many sync
+	 * objects can be packed in a page, and not waste GPU virtual address
+	 * space.  Because of this we have to have a omap_gem_set_sync_object()
+	 * API to allow replacement of the syncobj after it has (potentially)
+	 * already been allocated.  A bit ugly but I haven't thought of a
+	 * better alternative.
+	 */
+	struct {
+		uint32_t write_pending;
+		uint32_t write_complete;
+		uint32_t read_pending;
+		uint32_t read_complete;
+	} *sync;
+};
+
 /* this should probably be in drm-core to standardize amongst drivers */
 #define DRM_ROTATE_0	0
 #define DRM_ROTATE_90	1
@@ -126,6 +208,11 @@ struct omap_drm_private {
 #define DRM_ROTATE_270	3
 #define DRM_REFLECT_X	4
 #define DRM_REFLECT_Y	5
+
+/* note: we use upper 8 bits of flags for driver-internal flags: */
+#define OMAP_BO_DMA		0x01000000	/* actually is physically contiguous */
+#define OMAP_BO_EXT_SYNC	0x02000000	/* externally allocated sync object */
+#define OMAP_BO_EXT_MEM		0x04000000	/* externally allocated memory */
 
 #ifdef CONFIG_DEBUG_FS
 int omap_debugfs_init(struct drm_minor *minor);
