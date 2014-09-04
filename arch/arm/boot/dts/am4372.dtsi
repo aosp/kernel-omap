@@ -25,6 +25,8 @@
 		serial0 = &uart0;
 		ethernet0 = &cpsw_emac0;
 		ethernet1 = &cpsw_emac1;
+		d_can0 = &dcan0;
+		d_can1 = &dcan1;
 	};
 
 	cpus {
@@ -65,10 +67,12 @@
 	};
 
 	am43xx_pinmux: pinmux@44e10800 {
-		compatible = "pinctrl-single";
+		compatible = "ti,am437-padconf", "pinctrl-single";
 		reg = <0x44e10800 0x31c>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
 	};
@@ -185,6 +189,14 @@
 				ti,mbox-tx = <0 0 0>;
 				ti,mbox-rx = <0 0 3>;
 			};
+			mbox_pru0: mbox_pru0 {
+				ti,mbox-tx = <2 0 0>;
+				ti,mbox-rx = <3 0 0>;
+			};
+			mbox_pru1: mbox_pru1 {
+				ti,mbox-tx = <4 0 0>;
+				ti,mbox-rx = <5 0 0>;
+			};
 		};
 
 		timer1: timer@44e31000 {
@@ -285,11 +297,12 @@
 		};
 
 		rtc: rtc@44e3e000 {
-			compatible = "ti,am4372-rtc","ti,da830-rtc";
+			compatible = "ti,am3352-rtc", "ti,am4372-rtc";
 			reg = <0x44e3e000 0x1000>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH
 				      GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "rtc";
+			ti,system-power-controller;
 			status = "disabled";
 		};
 
@@ -675,6 +688,45 @@
 				reg = <0x4830a200 0x80>;
 				ti,hwmods = "ehrpwm5";
 				status = "disabled";
+			};
+		};
+
+		pruss: pruss@54400000 {
+			compatible = "ti,am4372-pruss";
+			ti,hwmods = "pruss";
+			reg = <0x54400000 0x2000>,
+			      <0x54402000 0x2000>,
+			      <0x54410000 0x8000>,
+			      <0x54420000 0x2000>,
+			      <0x54426000 0x2000>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			pru0: pru@4a334000 {
+				compatible = "ti,pru-rproc";
+				reg = <0x54434000 0x3000>,
+				      <0x54422000 0x400>,
+				      <0x54422400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru0>;
+			};
+
+			pru1: pru@4a338000 {
+				compatible = "ti,pru-rproc";
+				reg = <0x54438000 0x3000>,
+				      <0x54424000 0x400>,
+				      <0x54424400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru1>;
 			};
 		};
 
