@@ -14,7 +14,6 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
@@ -38,7 +37,7 @@ struct panel_drv_data {
 
 	struct omap_video_timings videomode;
 
-	int enable_gpio;
+	struct gpio_desc *enable_gpio;
 	struct regmap *regmap;
 
 	const struct tlc_board_data *board_data;
@@ -284,8 +283,20 @@ static int tlc_probe_of(struct device *dev)
 	struct panel_drv_data *ddata = dev_get_drvdata(dev);
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_dev_id;
+	struct gpio_desc *gpio;
 
-	ddata->enable_gpio = of_get_named_gpio(np, "enable-gpio", 0);
+	gpio = devm_gpiod_get(dev, "enable");
+
+	if (IS_ERR(gpio)) {
+		if (PTR_ERR(gpio) != -ENOENT)
+			return PTR_ERR(gpio);
+		else
+			gpio = NULL;
+	} else {
+		gpiod_direction_output(gpio, 1);
+	}
+
+	ddata->enable_gpio = gpio;
 
 	ddata->in = omapdss_of_find_source_for_first_ep(np);
 	if (IS_ERR(ddata->in)) {
@@ -330,13 +341,6 @@ static int tlc59108_i2c_probe(struct i2c_client *client,
 	if (r)
 		return r;
 
-	if (gpio_is_valid(ddata->enable_gpio)) {
-		r = devm_gpio_request_one(dev, ddata->enable_gpio,
-				GPIOF_OUT_INIT_LOW, "panel enable");
-		if (r)
-			goto err_gpio;
-	}
-
 	regmap = devm_regmap_init_i2c(client, &tlc59108_regmap_config);
 	if (IS_ERR(regmap)) {
 		r = PTR_ERR(regmap);
@@ -352,7 +356,7 @@ static int tlc59108_i2c_probe(struct i2c_client *client,
 	r = regmap_read(ddata->regmap, TLC59108_MODE1, &val);
 	if (r < 0) {
 		dev_err(dev, "Failed to set MODE1: %d\n", r);
-		return r;
+		goto err_read;
 	}
 
 	dssdev = &ddata->dssdev;
@@ -372,6 +376,7 @@ static int tlc59108_i2c_probe(struct i2c_client *client,
 
 	return 0;
 err_reg:
+err_read:
 err_gpio:
 	omap_dss_put_device(ddata->in);
 	return r;
@@ -383,8 +388,8 @@ static int tlc59108_i2c_remove(struct i2c_client *client)
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 	struct omap_dss_device *in = ddata->in;
 
-	if (gpio_is_valid(ddata->enable_gpio))
-		gpio_set_value_cansleep(ddata->enable_gpio, 1);
+	if (ddata->enable_gpio)
+		gpiod_set_value_cansleep(ddata->enable_gpio, 0);
 
 	omapdss_unregister_display(dssdev);
 

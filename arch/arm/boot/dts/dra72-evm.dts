@@ -28,6 +28,9 @@
 	tpd12s015: encoder@0 {
 		compatible = "omapdss,ti,tpd12s015";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&hpd_pin>;
+
                 gpios = <&pcf_hdmi 4 GPIO_ACTIVE_HIGH>,	/* P4, CT CP HPD */
                         <&pcf_hdmi 5 GPIO_ACTIVE_HIGH>,	/* P5, LS OE */
                         <&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
@@ -92,6 +95,18 @@
 			reusable;
 			status = "okay";
 		};
+	};
+
+	extcon1: dra7x_usbid_extcon1 {
+		compatible = "linux,extcon-gpio";
+		gpios = <&pcf_gpio_21 1 GPIO_ACTIVE_LOW>;
+		cable-name = "USB-HOST";
+	};
+
+	extcon2: dra7x_usbid_extcon2 {
+		compatible = "linux,extcon-gpio";
+		gpios = <&pcf_gpio_21 2 GPIO_ACTIVE_LOW>;
+		cable-name = "USB-HOST";
 	};
 
 	evm_3v3: fixedregulator-evm_3v3 {
@@ -283,7 +298,7 @@
 
 	hpd_pin: pinmux_hpd_pin {
 		pinctrl-single,pins = <
-			0x3b8   (PIN_INPUT | MUX_MODE14) /* gpio7_12 */
+			0x3b8   (PIN_INPUT_PULLDOWN | MUX_MODE14) /* gpio7_12 */
 		>;
 	};
 
@@ -311,6 +326,18 @@
 			0x330 (PIN_OFF_NONE)
 		>;
 	};
+
+	usb1_pins: pinmux_usb1_pins {
+                pinctrl-single,pins = <
+			0x280 (PIN_INPUT_SLEW | MUX_MODE0) /* usb1_drvvbus */
+                >;
+        };
+
+	usb2_pins: pinmux_usb2_pins {
+                pinctrl-single,pins = <
+			0x284 (PIN_INPUT_SLEW | MUX_MODE0) /* usb2_drvvbus */
+                >;
+        };
 };
 
 &i2c1 {
@@ -441,11 +468,23 @@
 		#gpio-cells = <2>;
 	};
 
+	pcf_gpio_21: gpio@21 {
+		compatible = "nxp,pcf8575";
+		reg = <0x21>;
+		lines-initial-states = <0x1408>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <11 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	/* TLC chip for LCD panel power and backlight */
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108-lp101";
 		reg = <0x40>;
-		enable-gpio = <&pcf_lcd 13 GPIO_ACTIVE_HIGH>; /* P15, CON_LCD_PWR_DN */
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
 
 		port {
 			tlc_in: endpoint {
@@ -494,7 +533,7 @@
 		 * VIN2_S0 driven high otherwise Ethernet stops working
 		 * VIN6_SEL_S0 is low, thus selecting McASP3 over VIN6
 		 */
-		lines-initial-states = <0xff2b>;
+		lines-initial-states = <0x0f2b>;
 	};
 };
 
@@ -670,7 +709,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&vout1_pins>;
 
-	vdda-supply = <&ldo5_reg>;
+	vdda_video-supply = <&ldo5_reg>;
 
 	ports {
 		#address-cells = <1>;
@@ -699,7 +738,7 @@
 	status = "ok";
 	vdda-supply = <&ldo3_reg>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&hpd_pin &i2c2_pins>;
+	pinctrl-0 = <&i2c2_pins>;
 
 	port {
 		hdmi_out: endpoint {
@@ -793,4 +832,24 @@
 		0 0 0 0
 		0 0 0 0
 	>;
+};
+
+&omap_dwc3_1 {
+	extcon = <&extcon1>;
+};
+
+&omap_dwc3_2 {
+	extcon = <&extcon2>;
+};
+
+&usb1 {
+	dr_mode = "peripheral";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_pins>;
+};
+
+&usb2 {
+	dr_mode = "host";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2_pins>;
 };

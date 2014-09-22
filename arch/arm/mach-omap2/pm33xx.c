@@ -46,6 +46,7 @@
 #include "pm.h"
 #include "cm33xx.h"
 #include "pm33xx.h"
+#include "prm33xx.h"
 #include "common.h"
 #include "clockdomain.h"
 #include "powerdomain.h"
@@ -190,12 +191,14 @@ static void am43xx_save_context(void)
 {
 	common_save_context();
 	am43xx_control_save_context();
+	am43xx_prm_save_context();
 }
 
 static void am43xx_restore_context(void)
 {
 	common_restore_context();
 	am43xx_control_restore_context();
+	am43xx_prm_restore_context();
 	am43xx_push_sram_idle();
 	/*
 	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
@@ -224,7 +227,7 @@ static int am33xx_pm_suspend(unsigned int state)
 
 	am33xx_pm->ops->pre_suspend(state);
 
-	if (state == PM_SUSPEND_MEM && enable_off_mode)
+	if (state == PM_SUSPEND_MEM && enable_off_mode && rtc_magic_val)
 		rtc_only_idle = 1;
 
 	if (rtc_only_idle) {
@@ -333,6 +336,7 @@ static int am33xx_pm_begin(suspend_state_t state)
 {
 	int i;
 
+	cpu_idle_poll_ctrl(true);
 
 	switch (state) {
 	case PM_SUSPEND_MEM:
@@ -372,6 +376,8 @@ static void am33xx_pm_end(void)
 	if (retrigger_irq)
 		writel_relaxed(1 << (retrigger_irq & 31),
 			       gic_dist_base + 0x200 + retrigger_irq / 32 * 4);
+
+	cpu_idle_poll_ctrl(false);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
@@ -775,16 +781,23 @@ int __init am33xx_pm_init(void)
 	wkup_m3_set_ops(&am33xx_wkup_m3_ops);
 
 	pmx_dev = get_pinctrl_dev_from_devname("44e10800.pinmux");
-	omap_rtc = rtc_class_open("rtc0");
 
-	rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, &rtc_magic_val);
+	np = of_find_node_by_name(NULL, "rtc");
 
-	if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
-		pr_warn("PM: Bootloader does not support rtc-only mode!\n");
+	if (of_device_is_available(np)) {
+		omap_rtc = rtc_class_open("rtc0");
 
-	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
-	rtc_write_scratch(omap_rtc, RTC_SCRATCH_RESUME_REG,
-			  virt_to_phys(cpu_resume));
+		rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
+				 &rtc_magic_val);
+
+		if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
+			pr_warn("PM: bootloader does not support rtc-only!\n");
+
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_RESUME_REG,
+				  virt_to_phys(cpu_resume));
+	} else
+		pr_warn("PM: no-rtc available, rtc-only mode disabled.\n");
 
 	return 0;
 

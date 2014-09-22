@@ -341,7 +341,8 @@ void omap3_save_scratchpad_contents(void)
 		scratchpad_contents.public_restore_ptr =
 			virt_to_phys(omap3_restore_3630);
 	else if (omap_rev() != OMAP3430_REV_ES3_0 &&
-					omap_rev() != OMAP3430_REV_ES3_1)
+					omap_rev() != OMAP3430_REV_ES3_1 &&
+					omap_rev() != OMAP3430_REV_ES3_1_2)
 		scratchpad_contents.public_restore_ptr =
 			virt_to_phys(omap3_restore);
 	else
@@ -608,6 +609,10 @@ void omap3_ctrl_set_iva_bootmode_idle(void)
 			 OMAP343X_CONTROL_IVA2_BOOTMOD);
 }
 
+#endif /* CONFIG_ARCH_OMAP3 && CONFIG_PM */
+
+#if (defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)) && \
+	defined(CONFIG_PM)
 static unsigned long am33xx_control_reg_offsets[] = {
 	AM33XX_CONTROL_SYSCONFIG_OFFSET,
 	AM33XX_CONTROL_STATUS_OFFSET,
