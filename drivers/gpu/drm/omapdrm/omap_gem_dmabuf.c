@@ -197,6 +197,13 @@ struct drm_gem_object *omap_gem_prime_import(struct drm_device *dev,
 		struct dma_buf *buffer)
 {
 	struct drm_gem_object *obj;
+	struct omap_gem_object *omap_obj;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct scatterlist *sgl;
+
+	union omap_gem_size gsize;
+	int ret;
 
 	/* is this one of own objects? */
 	if (buffer->ops == &omap_dmabuf_ops) {
@@ -212,9 +219,57 @@ struct drm_gem_object *omap_gem_prime_import(struct drm_device *dev,
 		}
 	}
 
-	/*
-	 * TODO add support for importing buffers from other devices..
-	 * for now we don't need this but would be nice to add eventually
-	 */
-	return ERR_PTR(-EINVAL);
+	/* need to attach */
+	attach = dma_buf_attach(buffer, dev->dev);
+	if (IS_ERR(attach))
+		return ERR_CAST(attach);
+
+	get_dma_buf(buffer);
+
+	gsize = (union omap_gem_size){
+		.bytes = buffer->size,
+	};
+
+	obj = omap_gem_new(dev, gsize, OMAP_BO_EXT_MEM);
+	if (obj == NULL) {
+		ret = -ENOMEM;
+		goto fail_detach;
+	}
+
+	omap_obj = to_omap_bo(obj);
+
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR_OR_NULL(sgt)) {
+		ret = PTR_ERR(sgt);
+		goto fail_release;
+	}
+
+	sgl = sgt->sgl;
+
+	omap_obj->paddr = sg_dma_address(sgl);
+
+	if (sgt->nents == 1) {
+		/* always physically continuous memory if sgt->nents is 1. */
+		omap_obj->flags |= OMAP_BO_DMA;
+	}
+	else {
+		/*
+		TODO: Incomplete. Do not push upstream until fixed;
+		 */
+		ret = -EINVAL;
+		goto fail_release;
+	}
+
+	obj->import_attach = attach;
+
+	return obj;
+
+fail_release:
+	drm_gem_object_release(obj);
+	kfree(obj);
+fail_detach:
+	dma_buf_detach(buffer, attach);
+	dma_buf_put(buffer);
+
+	return ERR_PTR(ret);
 }

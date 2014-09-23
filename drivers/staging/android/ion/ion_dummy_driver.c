@@ -26,6 +26,7 @@
 #include "ion_priv.h"
 
 struct ion_device *idev;
+EXPORT_SYMBOL(idev);
 struct ion_heap **heaps;
 
 void *carveout_ptr;
@@ -46,7 +47,7 @@ struct ion_platform_heap dummy_heaps[] = {
 			.id	= ION_HEAP_TYPE_CARVEOUT,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= "carveout",
-			.size	= SZ_4M,
+			.size	= SZ_8M,
 		},
 		{
 			.id	= ION_HEAP_TYPE_CHUNK,
