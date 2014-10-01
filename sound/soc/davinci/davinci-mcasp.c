@@ -49,7 +49,16 @@ struct davinci_mcasp_context {
 	u32	rxfmt;
 	u32	aclkxctl;
 	u32	aclkrctl;
+	u32	ahclkxctl;
+	u32	ahclkrctl;
 	u32	pdir;
+	u32	rxmask;
+	u32	txmask;
+	u32	rxtdm;
+	u32	txtdm;
+	u32	rfifoctl;
+	u32	wfifoctl;
+	u32	*xrsrctl;
 };
 
 struct davinci_mcasp {
@@ -865,6 +874,8 @@ static int davinci_mcasp_suspend(struct snd_soc_dai *dai)
 {
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 	struct davinci_mcasp_context *context = &mcasp->context;
+	int i;
+	u32 reg;
 
 	context->txfmtctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_TXFMCTL_REG);
 	context->rxfmtctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_RXFMCTL_REG);
@@ -872,7 +883,24 @@ static int davinci_mcasp_suspend(struct snd_soc_dai *dai)
 	context->rxfmt = mcasp_get_reg(mcasp, DAVINCI_MCASP_RXFMT_REG);
 	context->aclkxctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_ACLKXCTL_REG);
 	context->aclkrctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_ACLKRCTL_REG);
+	context->ahclkxctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG);
+	context->ahclkrctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG);
 	context->pdir = mcasp_get_reg(mcasp, DAVINCI_MCASP_PDIR_REG);
+	context->rxmask = mcasp_get_reg(mcasp, DAVINCI_MCASP_RXMASK_REG);
+	context->txmask = mcasp_get_reg(mcasp, DAVINCI_MCASP_TXMASK_REG);
+	context->rxtdm = mcasp_get_reg(mcasp, DAVINCI_MCASP_RXTDM_REG);
+	context->txtdm = mcasp_get_reg(mcasp, DAVINCI_MCASP_TXTDM_REG);
+	if (mcasp->txnumevt) {
+		reg = mcasp->fifo_base + MCASP_WFIFOCTL_OFFSET;
+		context->wfifoctl = mcasp_get_reg(mcasp, reg);
+	}
+	if (mcasp->rxnumevt) {
+		reg = mcasp->fifo_base + MCASP_RFIFOCTL_OFFSET;
+		context->rfifoctl = mcasp_get_reg(mcasp, reg);
+	}
+	for (i = 0; i < mcasp->num_serializer; i++)
+		context->xrsrctl[i] = mcasp_get_reg(mcasp,
+						DAVINCI_MCASP_XRSRCTL_REG(i));
 
 	return 0;
 }
@@ -881,6 +909,8 @@ static int davinci_mcasp_resume(struct snd_soc_dai *dai)
 {
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 	struct davinci_mcasp_context *context = &mcasp->context;
+	int i;
+	u32 reg;
 
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXFMCTL_REG, context->txfmtctl);
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_RXFMCTL_REG, context->rxfmtctl);
@@ -888,7 +918,24 @@ static int davinci_mcasp_resume(struct snd_soc_dai *dai)
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_RXFMT_REG, context->rxfmt);
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_ACLKXCTL_REG, context->aclkxctl);
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_ACLKRCTL_REG, context->aclkrctl);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, context->ahclkxctl);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, context->ahclkrctl);
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_PDIR_REG, context->pdir);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_RXMASK_REG, context->rxmask);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXMASK_REG, context->txmask);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_RXTDM_REG, context->rxtdm);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXTDM_REG, context->txtdm);
+	if (mcasp->txnumevt) {
+		reg = mcasp->fifo_base + MCASP_WFIFOCTL_OFFSET;
+		mcasp_set_reg(mcasp, reg, context->wfifoctl);
+	}
+	if (mcasp->rxnumevt) {
+		reg = mcasp->fifo_base + MCASP_RFIFOCTL_OFFSET;
+		mcasp_set_reg(mcasp, reg, context->rfifoctl);
+	}
+	for (i = 0; i < mcasp->num_serializer; i++)
+		mcasp_set_reg(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),
+			      context->xrsrctl[i]);
 
 	return 0;
 }
@@ -1207,6 +1254,11 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	mcasp->op_mode = pdata->op_mode;
 	mcasp->tdm_slots = pdata->tdm_slots;
 	mcasp->num_serializer = pdata->num_serializer;
+#ifdef CONFIG_PM_SLEEP
+	mcasp->context.xrsrctl = devm_kzalloc(&pdev->dev,
+					sizeof(u32) * mcasp->num_serializer,
+					GFP_KERNEL);
+#endif
 	mcasp->serial_dir = pdata->serial_dir;
 	mcasp->version = pdata->version;
 	mcasp->txnumevt = pdata->txnumevt;
