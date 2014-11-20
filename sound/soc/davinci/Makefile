@@ -18,3 +18,8 @@ obj-$(CONFIG_SND_DM6467_SOC_EVM) += snd-soc-evm.o
 obj-$(CONFIG_SND_DA830_SOC_EVM) += snd-soc-evm.o
 obj-$(CONFIG_SND_DA850_SOC_EVM) += snd-soc-evm.o
 obj-$(CONFIG_SND_DAVINCI_SOC_SFFSDR) += snd-soc-sffsdr.o
+
+# McASP-based Bluetooth Machine Support
+snd-soc-mcasp-bt-card-objs := mcasp-bt-card.o
+
+obj-$(CONFIG_SND_MCASP_BT_CARD) += snd-soc-mcasp-bt-card.o

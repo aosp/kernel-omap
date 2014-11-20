@@ -83,3 +83,10 @@ config  SND_DA850_SOC_EVM
 	  Say Y if you want to add support for SoC audio on TI
 	  DA850/OMAP-L138 EVM
 
+config SND_MCASP_BT_CARD
+	tristate "SoC Audio support for McASP-based Bluetooth SCO cards"
+	select SND_DAVINCI_SOC_MCASP
+	select SND_SOC_BT_SCO
+	help
+	  Say Y if you want to add support for SoC audio on McASP-based
+	  Bluetooth SCO cards.

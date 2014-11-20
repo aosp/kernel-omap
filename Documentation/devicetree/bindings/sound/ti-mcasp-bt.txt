@@ -1,0 +1,21 @@
+SoC Audio support for Bluetooth SCO cards based on the Texas Instruments
+McASP controller
+
+Required properties:
+- compatible : should contain one of:
+    * "ti,dra7xx-wl8-bt" for DRA7 EVM boards with WiLink connectivity
+- ti,model : The user-visible name of this sound complex
+- ti,mcasp-controller : The phandle of the McASP controller
+
+Optional properties:
+- ti,bclk-rate : The rate of the bit clock (when supplied externally by the
+  connectivity chip)
+
+Example:
+bt_sco_sound {
+	     compatible = "ti,dra7xx-wl8-bt";
+	     ti,model = "DRA7xx-WiLink";
+	     ti,mcasp-controller = <&mcasp7>;
+	     ti,bclk-rate = <512000>;
+};
+
