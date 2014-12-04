@@ -1540,6 +1540,12 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&pdev->dev, "pm_runtime_get_sync() failed\n");
+		return ret;
+	}
+
 	dev->base = devm_ioremap(&pdev->dev, mem->start, resource_size(mem));
 	if (!dev->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
@@ -1660,6 +1666,7 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 err_unregister_dai:
 	snd_soc_unregister_dai(&pdev->dev);
 err_release_clk:
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	return ret;
 }
@@ -1673,6 +1680,7 @@ static int davinci_mcasp_remove(struct platform_device *pdev)
 	if (dev->version != MCASP_VERSION_4)
 		davinci_soc_platform_unregister(&pdev->dev);
 
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
