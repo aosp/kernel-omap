@@ -178,10 +178,6 @@
 		ti,multichannel-slots = <8>;
 		ti,multichannel-mclk-freq = <11289600>;
 		ti,multichannel-shared;
-
-		/* Bluetooth */
-		ti,bt-cpu = <&mcasp7>;
-		ti,bt-bclk-freq = <512000>;
 	};
 
 	radio {
@@ -200,6 +196,13 @@
 		ti,model = "OMAP5HDMI";
 		ti,hdmi_audio = <&hdmi>;
 		ti,level_shifter = <&tpd12s015>;
+	};
+
+	bt_sco_sound {
+		compatible = "ti,dra7xx-wl8-bt";
+		ti,model = "DRA7xx-WiLink";
+		ti,mcasp-controller = <&mcasp7>;
+		ti,bclk-rate = <512000>;
 	};
 
 	extcon1: gpio_usbvid_extcon1 {
