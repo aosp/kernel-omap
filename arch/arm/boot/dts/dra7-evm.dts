@@ -23,8 +23,8 @@
 /*
  * Memory is reserved for ipu1 for rearview camera
  */
-/memreserve/ 0x8E000000 0x1000000;
-/memreserve/ 0xA0000000 0x1800000;
+/memreserve/ 0x90000000 0x4700000;
+/memreserve/ 0xA0000000 0x1000000;
 
 /include/ "dra74x.dtsi"
 
@@ -192,10 +192,10 @@
 	};
 
 	sound_hdmi {
-		compatible = "ti,omap-hdmi-tpd12s015-audio";
-		ti,model = "OMAP5HDMI";
-		ti,hdmi_audio = <&hdmi>;
-		ti,level_shifter = <&tpd12s015>;
+                     compatible = "ti,omap-hdmi-tpd12s015-audio";
+                     ti,model = "OMAP5HDMI";
+                     ti,hdmi_audio = <&hdmi>;
+                     ti,level_shifter = <&tpd12s015>;
 	};
 
 	bt_sco_sound {
@@ -222,7 +222,7 @@
 		dev_name = "/dev/ttyO2";
 		flow_cntrl = <1>;
 		baud_rate = <3686400>;
-		gpios = <&pcf_lcd3 14 0>; /* pcf8575@21 P16 */
+//		gpios = <&pcf_lcd3 14 0>; /* pcf8575@21 P16 */		//Comment by Rakesh - Still a conflict
 	};
 
 	btwilink {
@@ -688,7 +688,7 @@
 		reg = <0x21>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		n_latch = <0x1408>;
+		n_latch = <0x1008>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <14 2>;
 		interrupt-controller;
@@ -733,7 +733,7 @@
 		reg = <0x26>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		n_latch = <0xfffb>;
+		n_latch = <0xfff3>;
 	};
 
 	tlv320aic3106a: tlv320aic3106@18 {
@@ -762,7 +762,7 @@
 		AVDD-supply = <&vaudio_3v3>;
 		DRVDD-supply = <&vaudio_3v3>;
 	};
-
+/*
 	camera_ov10633: camera_ov10633 {
 		compatible = "ti,camera-ov10633";
 		gpios = <&pcf_hdmi 2 0>,
@@ -930,7 +930,7 @@
 			};
 		};
 	};
-
+*/
 	hdmirec: hdmirec@31 {
 		compatible = "no,one";
 		reg=<0x31>;
@@ -953,7 +953,7 @@
 		reg=<0x25>;
 		hdmirec = <&hdmirec>;
 	};
-
+/*
 	vis_des1: ds90ub914aq@60 {
 		compatible = "ti,ds90ub914aq";
 		reg = <0x60>;
@@ -1023,6 +1023,7 @@
 		compatible = "ti,ds90uh928q";
 		reg = <0x2c>;
 	};
+*/
 };
 
 &i2c3 {
@@ -1110,15 +1111,15 @@
 &avs_iva {
 	avs-supply = <&smps8_reg>;
 };
-
+/*
 &vip1 {
 	pinctrl-names = "default";
-	/*
+	/""""""""""""""""""""""""""""""""""""""*
 		Pinmux conflict between 1a:16-23 & 2a:0-8
 		Either use full 32bit of vin1a or use 16bit vin1a and 8bitvin2a
 		TO enable RGB camera, uncomment this
 		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
-	*/
+	*""""""""""""""""""""""""""""""""""""""/
 	pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 
 	vin1a: port@0A {
@@ -1226,7 +1227,7 @@
 		remote-endpoint = <&cam6>;
 	};
 };
-
+*/
 &dpi1 {
 	lcd {
 		compatible = "ti,tfc_lp101";

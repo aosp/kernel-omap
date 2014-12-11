@@ -800,7 +800,7 @@
 	status = "okay";
 };
 
-
+/*
 &vip1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
@@ -823,7 +823,7 @@
 		remote-endpoint = <&tvp5158>;
 	};
 };
-
+*/
 &gmac {
 	status="okay";
 	pinctrl-names = "default";
