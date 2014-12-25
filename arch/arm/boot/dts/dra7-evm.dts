@@ -191,12 +191,6 @@
 		ti,multichannel-shared;
 	};
 
-	sound_hdmi {
-                     compatible = "ti,omap-hdmi-tpd12s015-audio";
-                     ti,model = "OMAP5HDMI";
-                     ti,hdmi_audio = <&hdmi>;
-                     ti,level_shifter = <&tpd12s015>;
-	};
 
 	bt_sco_sound {
 		compatible = "ti,dra7xx-wl8-bt";
@@ -222,7 +216,7 @@
 		dev_name = "/dev/ttyO2";
 		flow_cntrl = <1>;
 		baud_rate = <3686400>;
-//		gpios = <&pcf_lcd3 14 0>; /* pcf8575@21 P16 */		//Comment by Rakesh - Still a conflict
+//		gpios = <&pcf_lcd3 14 1>; /* pcf8575@21 P16 */		//Comment by Rakesh - Still a conflict
 	};
 
 	btwilink {
@@ -1240,22 +1234,6 @@
 	compatible = "lgphilips,ldc3001";
 };
 
-&hdmi {
-	vdda_hdmi_dac-supply = <&ldo3_reg>;
-	tpd12s015: tpd12s015 {
-		compatible = "ti,tpd12s015";
-
-		gpios = <&pcf_hdmi 4 0>,	/* pcf8575@22 P4, CT_CP_HDP */
-			<&pcf_hdmi 5 0>,	/* pcf8575@22 P5, LS_OE */
-			<&gpio7 12 0>;		/* gpio7_12/sp1_cs2, HPD */
-
-		hdmi_ddc = <&i2c2>;
-
-		hdmi-monitor {
-			compatible = "ti,hdmi_panel";
-		};
-	};
-};
 
 &qspi {
 	spi-max-frequency = <48000000>;

@@ -60,11 +60,7 @@ enum dss_dpll dpi_get_dpll(struct platform_device *pdev)
 
 	switch (dpi->module_id) {
 	case 0:
-#ifdef CONFIG_DISPLAY_SKIP_INIT
-		if (omapdss_skipinit())
-#else
 		if (dss_dpll_disabled(DSS_DPLL_VIDEO1))
-#endif
 			return DSS_DPLL_VIDEO1;
 		else
 			return DSS_DPLL_NONE;

@@ -36,7 +36,6 @@
 					 DISPC_IRQ_OCP_ERR | \
 					 DISPC_IRQ_VID1_FIFO_UNDERFLOW | \
 					 DISPC_IRQ_VID2_FIFO_UNDERFLOW | \
-					 DISPC_IRQ_SYNC_LOST | \
 					 DISPC_IRQ_SYNC_LOST_DIGIT)
 
 #define DISPC_MAX_NR_ISRS		8
@@ -531,7 +530,7 @@ static void dispc_mgr_disable_lcd_out(enum omap_channel channel)
 static void dispc_digit_out_enable_isr(void *data, u32 mask)
 {
 	struct completion *compl = data;
-
+	pr_err("\nEnter %s\n\n", __func__);
 	/* ignore any sync lost interrupts */
 	if (mask & (DISPC_IRQ_EVSYNC_EVEN | DISPC_IRQ_EVSYNC_ODD))
 		complete(compl);
@@ -542,10 +541,12 @@ static void dispc_mgr_enable_digit_out(void)
 	DECLARE_COMPLETION_ONSTACK(vsync_compl);
 	int r;
 	u32 irq_mask;
+	pr_err("Enter %s", __func__);
 
 	if (dispc_mgr_is_enabled(OMAP_DSS_CHANNEL_DIGIT) == true)
 		return;
 
+	pr_err("Need to enable %s", __func__);
 	/*
 	 * Digit output produces some sync lost interrupts during the first
 	 * frame when enabling. Those need to be ignored, so we register for the
@@ -581,9 +582,11 @@ static void dispc_mgr_disable_digit_out(void)
 	u32 irq_mask;
 	int num_irqs;
 
+	pr_err("Enter %s", __func__);
 	if (dispc_mgr_is_enabled(OMAP_DSS_CHANNEL_DIGIT) == false)
 		return;
 
+	pr_err("need to disable DIGIT %s", __func__);
 	/*
 	 * When we disable the digit output, we need to wait for FRAMEDONE to
 	 * know that DISPC has finished with the output.
@@ -635,6 +638,7 @@ static void dispc_mgr_disable_digit_out(void)
 
 void dispc_mgr_enable_sync(enum omap_channel channel)
 {
+	pr_err("Enter %s", __func__);
 	if (dss_mgr_is_lcd(channel))
 		dispc_mgr_enable_lcd_out(channel);
 	else if (channel == OMAP_DSS_CHANNEL_DIGIT)

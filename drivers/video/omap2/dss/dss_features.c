@@ -859,12 +859,13 @@ static const struct omap_dss_features dra7xx_dss_features = {
 	.features = omap5_dss_feat_list,
 	.num_features = ARRAY_SIZE(omap5_dss_feat_list),
 
-	.num_mgrs = 4,
 #ifdef CONFIG_EARLYCAMERA_IPU
 	/* VID3 is used by early camera */
-	.num_ovls = 3,
+	.num_ovls = 1,
+	.num_mgrs = 1,
 #else
 	.num_ovls = 4,
+	.num_mgrs = 4,
 #endif
 	.supported_displays = dra7xx_dss_supported_displays,
 	.supported_outputs = dra7xx_dss_supported_outputs,

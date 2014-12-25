@@ -756,7 +756,11 @@ static struct omap_hwmod dra7xx_dss_hdmi_hwmod = {
 	.mpu_irqs	= dra7xx_dss_hdmi_irqs,
 	.sdma_reqs	= dra7xx_dss_hdmi_sdma_reqs,
 	.main_clk	= "dss_48mhz_clk",
-	.flags		= HWMOD_SWSUP_SIDLE_ACT,
+#ifdef CONFIG_DISPLAY_SKIP_INIT
+      .flags          = HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET | HWMOD_SWSUP_SIDLE_ACT,
+#else
+        .flags          = HWMOD_SWSUP_SIDLE_ACT,
+#endif
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_DSS_DSS_CLKCTRL_OFFSET,
@@ -6873,7 +6877,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__dispc,
 	&dra7xx_dsp1__l3_main_1,
 	&dra7xx_dsp2__l3_main_1,
-	&dra7xx_l3_main_1__hdmi,
 	&dra7xx_l4_per1__elm,
 	&dra7xx_emif_ocp_fw__emif1,
 	&dra7xx_mpu__emif1,
