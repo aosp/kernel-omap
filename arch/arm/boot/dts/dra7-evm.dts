@@ -23,7 +23,7 @@
 /*
  * Memory is reserved for ipu1 for rearview camera
  */
-/memreserve/ 0x90000000 0x4700000;
+/memreserve/ 0x8e000000 0x4700000;
 /memreserve/ 0xA0000000 0x1000000;
 
 /include/ "dra74x.dtsi"
