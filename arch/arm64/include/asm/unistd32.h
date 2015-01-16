@@ -420,3 +420,7 @@ __SYSCALL(381, sys_sched_getattr)
 #define __ARM_NR_COMPAT_BASE		0x0f0000
 #define __ARM_NR_compat_cacheflush	(__ARM_NR_COMPAT_BASE+2)
 #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE+5)
+/* #define __NR_renameat2 382 */
+__SYSCALL(382, sys_ni_syscall)
+#define __NR_seccomp 383
+__SYSCALL(__NR_seccomp, sys_seccomp)
